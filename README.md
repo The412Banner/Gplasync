@@ -7,4 +7,4 @@ https://github.com/Sporif/dxvk-async updated to work with newer dxvk versions an
 - DXVK state cache works with async and gpl.
 
 # DXVK state cache
-I found way to use state cache while gpl is enabled which can improve smoothness. Pipelines are created first with gpl, then they are compiled without gpl in background and then they are written to cache. This is done in new 2.1-2 version (previous release was renamed to v2.1-1), but it needs more testing to be sure it doesn't have issues.
+I found way to use state cache while gpl is enabled, this can reduce stutter. Pipelines are created first with gpl, then they are compiled without gpl in background and then they are written to cache. This is done in new 2.1-2 version (previous release was renamed to v2.1-1), but i found that i accidentally broke state cache while gpl is disabled in that version, this is fixed in 2.1-3.
