@@ -340,10 +340,10 @@ index 373db325..6a3d5f70 100644
      hud                   = config.getOption<std::string>("dxvk.hud", "");
 -  }
 +
-+    if (env::getEnvVar("DXVK_ASYNC") == "1")
-+      enableAsync = true;
++    if (env::getEnvVar("DXVK_ASYNC") == "0")
++      enableAsync = false;
 +    else
-+      enableAsync = config.getOption<bool>("dxvk.enableAsync", false);
++      enableAsync = config.getOption<bool>("dxvk.enableAsync", true);
 +  } 
  
  }
