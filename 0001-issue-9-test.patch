@@ -1,19 +1,18 @@
-From 89099b2679fae945cb4e03e8deef248b9aa66fa2 Mon Sep 17 00:00:00 2001
+From 9b9d8c7451c40a45d7b4076436e5ed2a17963ea6 Mon Sep 17 00:00:00 2001
 From: Ph42oN <julle.ys.57@gmail.com>
-Date: Wed, 31 May 2023 12:28:56 +0300
+Date: Wed, 31 May 2023 12:49:27 +0300
 Subject: [PATCH] issue #9 test 4
 
 ---
  meson.build                |  2 +-
  src/dxvk/dxvk_context.cpp  | 20 +++++++++++---
  src/dxvk/dxvk_context.h    |  4 ++-
- src/dxvk/dxvk_graphics.cpp | 54 ++++++++++++++++++++++++++++++++------
+ src/dxvk/dxvk_graphics.cpp | 53 ++++++++++++++++++++++++++++++++------
  src/dxvk/dxvk_graphics.h   |  8 +++++-
- src/dxvk/dxvk_image.h      | 33 +++++++++++++++++++++++
+ src/dxvk/dxvk_image.h      | 33 ++++++++++++++++++++++++
  src/dxvk/dxvk_options.cpp  |  7 ++++-
  src/dxvk/dxvk_options.h    |  4 +++
- src/meson.build            |  1 +
- 9 files changed, 118 insertions(+), 15 deletions(-)
+ 8 files changed, 116 insertions(+), 15 deletions(-)
 
 diff --git a/meson.build b/meson.build
 index f465df9b..1d4f9079 100644
@@ -110,7 +109,7 @@ index fac872c9..f6e78423 100644
        const DxvkGraphicsPipelineShaders&  shaders);
  
 diff --git a/src/dxvk/dxvk_graphics.cpp b/src/dxvk/dxvk_graphics.cpp
-index 3a768299..31117e1a 100644
+index 3a768299..bcc06f0b 100644
 --- a/src/dxvk/dxvk_graphics.cpp
 +++ b/src/dxvk/dxvk_graphics.cpp
 @@ -918,7 +918,8 @@ namespace dxvk {
@@ -163,7 +162,7 @@ index 3a768299..31117e1a 100644
  
      // Find a pipeline handle to use. If no optimized pipeline has
      // been compiled yet, use the slower base pipeline instead.
-@@ -961,6 +979,21 @@ namespace dxvk {
+@@ -961,6 +979,20 @@ namespace dxvk {
      return std::make_pair(instance->baseHandle.load(), DxvkGraphicsPipelineType::BasePipeline);
    }
  
@@ -171,7 +170,6 @@ index 3a768299..31117e1a 100644
 +    DxvkGraphicsPipelineInstance *instance = this->findInstance(state);
 +    std::unique_lock<dxvk::mutex> lock(m_asyncMutex);
 +
-+    //bool canCreateBasePipeline = this->canCreateBasePipeline(state);
 +    instance = this->createInstance(state, false);
 +
 +    // Unlock here since we may dispatch the pipeline to a worker,
@@ -185,7 +183,7 @@ index 3a768299..31117e1a 100644
  
    void DxvkGraphicsPipeline::compilePipeline(
      const DxvkGraphicsPipelineStateInfo& state) {
-@@ -997,11 +1030,14 @@ namespace dxvk {
+@@ -997,11 +1029,14 @@ namespace dxvk {
      VkPipeline pipeline = this->getOptimizedPipeline(state);
      instance->fastHandle.store(pipeline, std::memory_order_release);
  
@@ -203,7 +201,7 @@ index 3a768299..31117e1a 100644
  
    void DxvkGraphicsPipeline::acquirePipeline() {
      if (!m_device->mustTrackPipelineLifetime())
-@@ -1215,6 +1251,8 @@ namespace dxvk {
+@@ -1215,6 +1250,8 @@ namespace dxvk {
  
      if (handle)
        m_fastPipelines.insert({ key, handle });
@@ -332,18 +330,6 @@ index fe4e903d..0b26dfd9 100644
      /// Shader-related options
      Tristate useRawSsbo;
  
-diff --git a/src/meson.build b/src/meson.build
-index 779d9d46..d5e1bb4e 100644
---- a/src/meson.build
-+++ b/src/meson.build
-@@ -3,6 +3,7 @@ subdir('util')
- subdir('spirv')
- subdir('vulkan')
- subdir('dxvk')
-+subdir('dxvk_config')
- 
- if get_option('enable_dxgi')
-   subdir('dxgi')
 -- 
 2.39.2
 
