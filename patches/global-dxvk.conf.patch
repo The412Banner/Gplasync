@@ -1,0 +1,32 @@
+ src/util/config/config.cpp | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/src/util/config/config.cpp b/src/util/config/config.cpp
+index 9e9446c5..6efe969a 100644
+--- a/src/util/config/config.cpp
++++ b/src/util/config/config.cpp
+@@ -1053,8 +1053,19 @@ namespace dxvk {
+     // Open the file if it exists
+     std::ifstream stream(str::topath(filePath.c_str()).c_str());
+ 
+-    if (!stream)
+-      return config;
++    if (!stream) {
++      filePath = "/home/" + env::getEnvVar("USER") + "/.config/dxvk.conf";
++      stream.open(str::topath(filePath.c_str()).c_str());
++#ifdef _WIN32
++      if (!stream) {
++		    filePath = env::getEnvVar("APPDATA") + "/dxvk.conf";
++        stream.open(str::topath(filePath.c_str()).c_str());
++      }
++#endif
++
++		  if (!stream)
++			  return config;
++    }
+     
+     // Inform the user that we loaded a file, might
+     // help when debugging configuration issues
+-- 
+2.39.1
+
