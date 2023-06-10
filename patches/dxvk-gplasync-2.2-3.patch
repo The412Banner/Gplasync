@@ -1,21 +1,21 @@
-From c4c5b4afe7c40c968df14e5644eaab52d90f4d21 Mon Sep 17 00:00:00 2001
+From 30c99cfc59a39cdf95ec9c2766dc379a3253099f Mon Sep 17 00:00:00 2001
 From: Ph42oN <julle.ys.57@gmail.com>
-Date: Thu, 1 Jun 2023 15:38:12 +0300
+Date: Sun, 11 Jun 2023 00:04:32 +0300
 Subject: [PATCH] add dxvk.gplAsyncCache option
 
 ---
  meson.build                |  2 +-
- src/dxvk/dxvk_context.cpp  | 20 ++++++++++++--
+ src/dxvk/dxvk_context.cpp  | 20 +++++++++++---
  src/dxvk/dxvk_context.h    |  4 ++-
- src/dxvk/dxvk_graphics.cpp | 56 +++++++++++++++++++++++++++++++++-----
- src/dxvk/dxvk_graphics.h   |  9 +++++-
- src/dxvk/dxvk_image.h      | 33 ++++++++++++++++++++++
- src/dxvk/dxvk_options.cpp  |  8 +++++-
- src/dxvk/dxvk_options.h    |  6 ++++
- 8 files changed, 124 insertions(+), 14 deletions(-)
+ src/dxvk/dxvk_graphics.cpp | 54 +++++++++++++++++++++++++++++++++-----
+ src/dxvk/dxvk_graphics.h   |  9 ++++++-
+ src/dxvk/dxvk_image.h      | 33 +++++++++++++++++++++++
+ src/dxvk/dxvk_options.cpp  | 12 ++++++++-
+ src/dxvk/dxvk_options.h    |  6 +++++
+ 8 files changed, 126 insertions(+), 14 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index f465df9b..1d4f9079 100644
+index f465df9b..2ec16bed 100644
 --- a/meson.build
 +++ b/meson.build
 @@ -158,7 +158,7 @@ glsl_generator = generator(
@@ -109,7 +109,7 @@ index fac872c9..f6e78423 100644
        const DxvkGraphicsPipelineShaders&  shaders);
  
 diff --git a/src/dxvk/dxvk_graphics.cpp b/src/dxvk/dxvk_graphics.cpp
-index 3a768299..6f5a7f7d 100644
+index 3a768299..ae957c8c 100644
 --- a/src/dxvk/dxvk_graphics.cpp
 +++ b/src/dxvk/dxvk_graphics.cpp
 @@ -874,6 +874,7 @@ namespace dxvk {
@@ -130,7 +130,7 @@ index 3a768299..6f5a7f7d 100644
      DxvkGraphicsPipelineInstance* instance = this->findInstance(state);
  
      if (unlikely(!instance)) {
-@@ -926,11 +928,25 @@ namespace dxvk {
+@@ -926,11 +928,23 @@ namespace dxvk {
        if (!this->validatePipelineState(state, true))
          return std::make_pair(VK_NULL_HANDLE, DxvkGraphicsPipelineType::FastPipeline);
  
@@ -140,7 +140,6 @@ index 3a768299..6f5a7f7d 100644
 +    bool useAsync = m_device->config().enableAsync && async;
 +
 +    // Prevent other threads from adding new instances and check again
-+    //std::unique_lock<dxvk::mutex> lock(m_mutex);
 +    std::unique_lock<dxvk::mutex> lock(useAsync ? m_asyncMutex : m_mutex);
 +    instance = this->findInstance(state);
 +
@@ -151,7 +150,6 @@ index 3a768299..6f5a7f7d 100644
 +        dxvk::thread asyncthread([=] { asyncPipeline(state); });
 +        asyncthread.set_priority(ThreadPriority::Lowest);
 +        asyncthread.detach();
-+        //m_workers->compileGraphicsPipeline(this, state, DxvkPipelinePriority::Normal);
 +
 +        return std::make_pair(VK_NULL_HANDLE, DxvkGraphicsPipelineType::FastPipeline);
 +      } else {
@@ -160,7 +158,7 @@ index 3a768299..6f5a7f7d 100644
          // Keep pipeline object locked, at worst we're going to stall
          // a state cache worker and the current thread needs priority.
          bool canCreateBasePipeline = this->canCreateBasePipeline(state);
-@@ -950,6 +966,7 @@ namespace dxvk {
+@@ -950,6 +964,7 @@ namespace dxvk {
            this->writePipelineStateToCache(state);
        }
      }
@@ -168,7 +166,7 @@ index 3a768299..6f5a7f7d 100644
  
      // Find a pipeline handle to use. If no optimized pipeline has
      // been compiled yet, use the slower base pipeline instead.
-@@ -961,6 +978,21 @@ namespace dxvk {
+@@ -961,6 +976,21 @@ namespace dxvk {
      return std::make_pair(instance->baseHandle.load(), DxvkGraphicsPipelineType::BasePipeline);
    }
  
@@ -190,7 +188,7 @@ index 3a768299..6f5a7f7d 100644
  
    void DxvkGraphicsPipeline::compilePipeline(
      const DxvkGraphicsPipelineStateInfo& state) {
-@@ -977,7 +1009,7 @@ namespace dxvk {
+@@ -977,7 +1007,7 @@ namespace dxvk {
  
        // Do not compile if this pipeline can be fast linked. This essentially
        // disables the state cache for pipelines that do not benefit from it.
@@ -199,7 +197,7 @@ index 3a768299..6f5a7f7d 100644
          return;
  
        // Prevent other threads from adding new instances and check again
-@@ -998,8 +1030,14 @@ namespace dxvk {
+@@ -998,8 +1028,14 @@ namespace dxvk {
      instance->fastHandle.store(pipeline, std::memory_order_release);
  
      // Log pipeline state on error
@@ -215,7 +213,7 @@ index 3a768299..6f5a7f7d 100644
    }
  
  
-@@ -1050,6 +1088,8 @@ namespace dxvk {
+@@ -1050,6 +1086,8 @@ namespace dxvk {
  
      if (doCreateBasePipeline)
        baseHandle = this->getBasePipeline(state);
@@ -224,7 +222,7 @@ index 3a768299..6f5a7f7d 100644
      else
        fastHandle = this->getOptimizedPipeline(state);
  
-@@ -1215,6 +1255,8 @@ namespace dxvk {
+@@ -1215,6 +1253,8 @@ namespace dxvk {
  
      if (handle)
        m_fastPipelines.insert({ key, handle });
@@ -316,16 +314,20 @@ index 3a09302b..c9f7615d 100644
      
    };
 diff --git a/src/dxvk/dxvk_options.cpp b/src/dxvk/dxvk_options.cpp
-index 373db325..3676d0f3 100644
+index 373db325..adb79d28 100644
 --- a/src/dxvk/dxvk_options.cpp
 +++ b/src/dxvk/dxvk_options.cpp
-@@ -11,6 +11,12 @@ namespace dxvk {
+@@ -11,6 +11,16 @@ namespace dxvk {
      useRawSsbo            = config.getOption<Tristate>("dxvk.useRawSsbo",             Tristate::Auto);
      maxChunkSize          = config.getOption<int32_t> ("dxvk.maxChunkSize",           0);
      hud                   = config.getOption<std::string>("dxvk.hud", "");
 -  }
 +
-+    gplAsyncCache = config.getOption<bool>("dxvk.gplAsyncCache", false);
++    if (env::getEnvVar("DXVK_GPLASYNCCACHE") == "1")
++      gplAsyncCache = true;
++    else
++      gplAsyncCache = config.getOption<bool>("dxvk.gplAsyncCache", false);
++    
 +    if (env::getEnvVar("DXVK_ASYNC") == "1")
 +      enableAsync = true;
 +    else
