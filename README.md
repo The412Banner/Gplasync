@@ -11,4 +11,4 @@ Async is enabled with DXVK_ASYNC=1 environment variable or dxvk.enableAsync=true
 State cache fixes are enabled using DXVK_GPLASYNCCACHE=1 environment variable or dxvk.gplAsyncCache=true.
 
 # DXVK state cache
-I found way to use state cache while gpl is enabled. Pipelines are created first with gpl, then they are compiled without gpl in background and then they are written to cache. In 2.2-3 release this is enabled using gplAsyncCache option. In 2.2-2 they are enabled always and that version does not work on all drivers.
+I found way to use state cache while gpl is enabled. Pipelines are created first with gpl, then they are compiled without gpl in background and then they are written to cache. Starting with 2.2-3 release this is enabled using gplAsyncCache option. In 2.2-2 they are enabled always and that version does not work on all drivers.
