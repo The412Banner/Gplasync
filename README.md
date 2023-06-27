@@ -2,9 +2,10 @@
 https://github.com/Sporif/dxvk-async updated to work with newer dxvk versions and gpl
 
 ## USE AT YOUR OWN RISK IN GAMES WITH ANTICHEAT
+I have not heard of any bans happening because of this but there is chance that some anticheat could get triggered because of async.
 
 # Improvements
-- Compatible with dxvk 2.1 and 2.2
+- Compatible with dxvk 2.1, 2.2, patch for dxvk git available in [test branch](https://gitlab.com/Ph42oN/dxvk-gplasync/-/tree/test/patches)
 - Async can be used at same time as graphics pipeline library.
 - DXVK state cache should work properly with async and gpl if using gplAsyncCache option. May cause crashes on some drivers.
 
