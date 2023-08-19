@@ -16,3 +16,6 @@ I have added patch to support global dxvk.conf, it will first look for dxvk.conf
 
 # DXVK state cache
 I found way to use state cache while gpl is enabled. Pipelines are created first with gpl, then they are compiled without gpl in background and then they are written to cache. Starting with 2.2-3 release this is enabled using gplAsyncCache option. In 2.2-2 they are enabled always and that version does not work on all drivers.
+
+# About VRAM usage
+Graphics pipeline library can increase VRAM usage, due to this if you are low on VRAM, it can be better to disable it.  That can be done with option dxvk.enableGraphicsPipelineLibrary=false in dxvk.conf.
