@@ -18,7 +18,7 @@ build:
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
-    - apt update && apt -y install meson mingw-w64 glslang-tools
+    - apt update && apt -y install meson mingw-w64 glslang-tools git
   script:
     - bash -c ./build-gplasync.sh
   artifacts:
