@@ -18,8 +18,11 @@ build:
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
-    - pacman -Syu --needed --noconfirm meson glslang git mingw-w64 base-devel
-  #  - apt update && apt -y install meson mingw-w64 glslang-tools build-essential git
+    - |
+      echo -e '\n\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n\n' >> /etc/pacman.conf
+      pacman-key --init
+      pacman -Sy --needed --noconfirm archlinux-keyring
+      pacman pacman -Syu --needed --noconfirm clang meson glslang git mingw-w64 wine libunwind base bash base-devel sed git tar curl wget bash gzip sudo file gawk grep bzip2 which pacman systemd findutils diffutils coreutils procps-ng util-linux xcb-util xcb-util-keysyms xcb-util-wm lib32-xcb-util lib32-xcb-util-keysyms
   script:
     - bash -c ./build-gplasync.sh
   artifacts:
