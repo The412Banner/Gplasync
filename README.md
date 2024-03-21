@@ -15,7 +15,7 @@ State cache fixes and and using it with GPL is enabled using DXVK_GPLASYNCCACHE=
 I have added patch to support global dxvk.conf, it will first look for dxvk.conf normally, if not found it checks for /home/$USER/.config/dxvk.conf and %APPDATA%/dxvk.conf.
 
 # DXVK state cache
-State cache can be used together with GPL that is not possible on upstream DXVK, but it can be useful depending on game. But i have found that using all GPL, async and gplAsyncCache, large state cache may cause stuttering, after my earlier state cache fixes this issue took months of playing to happen for me, and it was fixed by adding d3d11.cachedDynamicResources=vi in dxvk.conf.
+State cache can be used together with GPL that is not possible on upstream DXVK, but it can be useful depending on game.
 
 # About VRAM usage
 Graphics pipeline library can increase VRAM usage, due to this if you are low on VRAM, it can be better to disable it.  That can be done with option dxvk.enableGraphicsPipelineLibrary=false in dxvk.conf.
