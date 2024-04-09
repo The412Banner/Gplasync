@@ -1,7 +1,7 @@
-From e6dc6d890c0c2c4a724b2b0f41d5516d077fd809 Mon Sep 17 00:00:00 2001
-From: Rockford the Roe <anonymous@noemail.com>
-Date: Tue, 5 Dec 2023 21:13:16 -0600
-Subject: [PATCH] Sync patch to upstream commit 1b31aa5
+From fcc35246310ca077d8120b04b1c8cfd889142e1b Mon Sep 17 00:00:00 2001
+From: Ph42oN <julle.ys.57@gmail.com>
+Date: Thu, 21 Mar 2024 12:38:27 +0200
+Subject: [PATCH] release v2.3.1-1
 
 ---
  meson.build                |  2 +-
@@ -15,10 +15,10 @@ Subject: [PATCH] Sync patch to upstream commit 1b31aa5
  8 files changed, 109 insertions(+), 13 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index b571729d..35163bd9 100644
+index e35a9de0..9483be3f 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -157,7 +157,7 @@ glsl_generator = generator(
+@@ -174,7 +174,7 @@ glsl_generator = generator(
  )
  
  dxvk_version = vcs_tag(
@@ -28,10 +28,10 @@ index b571729d..35163bd9 100644
    output: 'version.h',
  )
 diff --git a/src/dxvk/dxvk_context.cpp b/src/dxvk/dxvk_context.cpp
-index 80c2620d..77efe153 100644
+index dcaa7cb7..4a8f1ad3 100644
 --- a/src/dxvk/dxvk_context.cpp
 +++ b/src/dxvk/dxvk_context.cpp
-@@ -5025,7 +5025,8 @@ namespace dxvk {
+@@ -5045,7 +5045,8 @@ namespace dxvk {
        : DxvkContextFlag::GpDirtyRasterizerState);
  
      // Retrieve and bind actual Vulkan pipeline handle
@@ -41,7 +41,7 @@ index 80c2620d..77efe153 100644
  
      if (unlikely(!pipelineInfo.first))
        return false;
-@@ -5382,7 +5383,7 @@ namespace dxvk {
+@@ -5402,7 +5403,7 @@ namespace dxvk {
    }
  
  
@@ -50,7 +50,7 @@ index 80c2620d..77efe153 100644
      if (m_flags.test(DxvkContextFlag::GpDirtyFramebuffer)) {
        m_flags.clr(DxvkContextFlag::GpDirtyFramebuffer);
  
-@@ -5406,6 +5407,11 @@ namespace dxvk {
+@@ -5426,6 +5427,11 @@ namespace dxvk {
          m_state.gp.state.omSwizzle[i] = DxvkOmAttachmentSwizzle(mapping);
        }
  
@@ -62,7 +62,7 @@ index 80c2620d..77efe153 100644
        m_flags.set(DxvkContextFlag::GpDirtyPipelineState);
      }
    }
-@@ -5904,7 +5910,7 @@ namespace dxvk {
+@@ -5926,7 +5932,7 @@ namespace dxvk {
      }
      
      if (m_flags.test(DxvkContextFlag::GpDirtyFramebuffer))
@@ -71,7 +71,7 @@ index 80c2620d..77efe153 100644
  
      if (!m_flags.test(DxvkContextFlag::GpRenderPassBound))
        this->startRenderPass();
-@@ -6323,6 +6329,14 @@ namespace dxvk {
+@@ -6345,6 +6351,14 @@ namespace dxvk {
      return true;
    }
    
@@ -87,10 +87,10 @@ index 80c2620d..77efe153 100644
    DxvkGraphicsPipeline* DxvkContext::lookupGraphicsPipeline(
      const DxvkGraphicsPipelineShaders&  shaders) {
 diff --git a/src/dxvk/dxvk_context.h b/src/dxvk/dxvk_context.h
-index 93ed91e3..5a260f15 100644
+index 3b61d474..e8c0c2fe 100644
 --- a/src/dxvk/dxvk_context.h
 +++ b/src/dxvk/dxvk_context.h
-@@ -1638,7 +1638,7 @@ namespace dxvk {
+@@ -1639,7 +1639,7 @@ namespace dxvk {
      DxvkFramebufferInfo makeFramebufferInfo(
        const DxvkRenderTargets&      renderTargets);
  
@@ -99,7 +99,7 @@ index 93ed91e3..5a260f15 100644
      
      void applyRenderTargetLoadLayouts();
  
-@@ -1721,6 +1721,8 @@ namespace dxvk {
+@@ -1722,6 +1722,8 @@ namespace dxvk {
        const Rc<DxvkBuffer>&           buffer,
              VkDeviceSize              copySize);
  
@@ -291,7 +291,7 @@ index 3a09302b..c9f7615d 100644
      
    };
 diff --git a/src/dxvk/dxvk_options.cpp b/src/dxvk/dxvk_options.cpp
-index 47e24492..f6aa5ee6 100644
+index 47e24492..8023851b 100644
 --- a/src/dxvk/dxvk_options.cpp
 +++ b/src/dxvk/dxvk_options.cpp
 @@ -13,6 +13,16 @@ namespace dxvk {
@@ -304,10 +304,10 @@ index 47e24492..f6aa5ee6 100644
 +    else
 +      gplAsyncCache = config.getOption<bool>("dxvk.gplAsyncCache", false);
 +    
-+    if (env::getEnvVar("DXVK_ASYNC") == "1")
-+      enableAsync = true;
++    if (env::getEnvVar("DXVK_ASYNC") == "0")
++      enableAsync = false;
 +    else
-+      enableAsync = config.getOption<bool>("dxvk.enableAsync", false);
++      enableAsync = config.getOption<bool>("dxvk.enableAsync", true);
    }
  
  }
@@ -336,5 +336,5 @@ index e7e6862f..e1474ab4 100644
      Tristate useRawSsbo;
  
 -- 
-2.43.0
+2.43.2
 
