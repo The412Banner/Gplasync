@@ -1,7 +1,7 @@
-From 94891255f2e61089521bfce295ecfd2a53615e7c Mon Sep 17 00:00:00 2001
+From fbb77be8355ca9ceaef18332c25871f334febc83 Mon Sep 17 00:00:00 2001
 From: Ph42oN <julle.ys.57@gmail.com>
-Date: Sun, 10 Nov 2024 20:38:12 +0200
-Subject: [PATCH] update to latest master
+Date: Mon, 18 Nov 2024 00:34:25 +0200
+Subject: [PATCH] update patch
 
 ---
  meson.build                |  2 +-
@@ -12,11 +12,10 @@ Subject: [PATCH] update to latest master
  src/dxvk/dxvk_image.h      | 33 +++++++++++++++++++++++++++++++++
  src/dxvk/dxvk_options.cpp  | 10 ++++++++++
  src/dxvk/dxvk_options.h    |  6 ++++++
- src/util/config/config.cpp | 15 +++++++++++++--
- 9 files changed, 120 insertions(+), 15 deletions(-)
+ 8 files changed, 107 insertions(+), 13 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index a9d8efb7..cbd1c6ba 100644
+index a96bc801..a776e2d8 100644
 --- a/meson.build
 +++ b/meson.build
 @@ -200,7 +200,7 @@ glsl_generator = generator(
@@ -283,7 +282,7 @@ index f9818437..508eb881 100644
  
      void updateViews();
 diff --git a/src/dxvk/dxvk_options.cpp b/src/dxvk/dxvk_options.cpp
-index 9d7d4d54..88d02d9e 100644
+index 44be3f3d..705b6e52 100644
 --- a/src/dxvk/dxvk_options.cpp
 +++ b/src/dxvk/dxvk_options.cpp
 @@ -3,6 +3,16 @@
@@ -302,9 +301,9 @@ index 9d7d4d54..88d02d9e 100644
 +    
      enableDebugUtils      = config.getOption<bool>    ("dxvk.enableDebugUtils",       false);
      enableStateCache      = config.getOption<bool>    ("dxvk.enableStateCache",       true);
-     enableMemoryDefrag    = config.getOption<bool>    ("dxvk.enableMemoryDefrag",     true);
+     enableMemoryDefrag    = config.getOption<Tristate>("dxvk.enableMemoryDefrag",     Tristate::Auto);
 diff --git a/src/dxvk/dxvk_options.h b/src/dxvk/dxvk_options.h
-index 7f64ddcb..025328fc 100644
+index b2b65f4a..0dcd23cb 100644
 --- a/src/dxvk/dxvk_options.h
 +++ b/src/dxvk/dxvk_options.h
 @@ -1,6 +1,7 @@
@@ -327,32 +326,6 @@ index 7f64ddcb..025328fc 100644
      /// Shader-related options
      Tristate useRawSsbo = Tristate::Auto;
  
-diff --git a/src/util/config/config.cpp b/src/util/config/config.cpp
-index 7fdeaa1b..ee0bd735 100644
---- a/src/util/config/config.cpp
-+++ b/src/util/config/config.cpp
-@@ -1458,8 +1458,19 @@ namespace dxvk {
-     // Open the file if it exists
-     std::ifstream stream(str::topath(filePath.c_str()).c_str());
- 
--    if (!stream && confLine.empty())
--      return config;
-+    if (!stream && confLine.empty()) {
-+      filePath = "/home/" + env::getEnvVar("USER") + "/.config/dxvk.conf";
-+      stream.open(str::topath(filePath.c_str()).c_str());
-+#ifdef _WIN32
-+      if (!stream) {
-+		    filePath = env::getEnvVar("APPDATA") + "/dxvk.conf";
-+        stream.open(str::topath(filePath.c_str()).c_str());
-+      }
-+#endif
-+
-+		  if (!stream)
-+			  return config;
-+    }
- 
-     // Initialize parser context
-     ConfigContext ctx;
 -- 
 2.44.2
 
