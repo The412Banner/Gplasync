@@ -1,5 +1,5 @@
 #!/bin/bash
-git clone --branch v2.5 --recursive https://github.com/doitsujin/dxvk.git
+git clone --branch v2.5.1 --recursive https://github.com/doitsujin/dxvk.git
 
 cd dxvk
 patch -p1 < ../patches/dxvk-gplasync-2.5-1.patch
