@@ -1,24 +1,24 @@
-From fbb77be8355ca9ceaef18332c25871f334febc83 Mon Sep 17 00:00:00 2001
+From f65b57b606ed834fab0e21f266d2c931cfef1b7d Mon Sep 17 00:00:00 2001
 From: Ph42oN <julle.ys.57@gmail.com>
-Date: Mon, 18 Nov 2024 00:34:25 +0200
-Subject: [PATCH] update patch
+Date: Sat, 28 Dec 2024 21:13:48 +0200
+Subject: [PATCH] 2.5.2 test
 
 ---
  meson.build                |  2 +-
- src/dxvk/dxvk_context.cpp  | 20 +++++++++++++++++---
+ src/dxvk/dxvk_context.cpp  | 22 ++++++++++++++++++----
  src/dxvk/dxvk_context.h    |  4 +++-
  src/dxvk/dxvk_graphics.cpp | 36 +++++++++++++++++++++++++++++-------
- src/dxvk/dxvk_graphics.h   |  9 ++++++++-
+ src/dxvk/dxvk_graphics.h   | 10 +++++++++-
  src/dxvk/dxvk_image.h      | 33 +++++++++++++++++++++++++++++++++
  src/dxvk/dxvk_options.cpp  | 10 ++++++++++
  src/dxvk/dxvk_options.h    |  6 ++++++
- 8 files changed, 107 insertions(+), 13 deletions(-)
+ 8 files changed, 109 insertions(+), 14 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index a96bc801..a776e2d8 100644
+index 29101e73..172acfd4 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -200,7 +200,7 @@ glsl_generator = generator(
+@@ -195,7 +195,7 @@ glsl_generator = generator(
  )
  
  dxvk_version = vcs_tag(
@@ -28,10 +28,10 @@ index a96bc801..a776e2d8 100644
    output: 'version.h',
  )
 diff --git a/src/dxvk/dxvk_context.cpp b/src/dxvk/dxvk_context.cpp
-index 4523be38..0e865a11 100644
+index 4523be38..f6a79479 100644
 --- a/src/dxvk/dxvk_context.cpp
 +++ b/src/dxvk/dxvk_context.cpp
-@@ -4963,7 +4963,8 @@ namespace dxvk {
+@@ -4963,9 +4963,10 @@ namespace dxvk {
        : DxvkContextFlag::GpDirtyRasterizerState);
  
      // Retrieve and bind actual Vulkan pipeline handle
@@ -39,8 +39,11 @@ index 4523be38..0e865a11 100644
 +    auto pipelineInfo = m_state.gp.pipeline->getPipelineHandle(
 +      m_state.gp.state, this->checkAsyncCompilationCompat());
  
-     if (unlikely(!pipelineInfo.first))
+-    if (unlikely(!pipelineInfo.first))
++    if (!pipelineInfo.first)
        return false;
+ 
+     m_cmd->cmdBindPipeline(DxvkCmdBuffer::ExecBuffer,
 @@ -5317,7 +5318,7 @@ namespace dxvk {
    }
  
@@ -109,7 +112,7 @@ index c08e9bf1..448b818a 100644
        const DxvkGraphicsPipelineShaders&  shaders);
  
 diff --git a/src/dxvk/dxvk_graphics.cpp b/src/dxvk/dxvk_graphics.cpp
-index 1f44f57d..bb66498d 100644
+index 1f44f57d..24813d0f 100644
 --- a/src/dxvk/dxvk_graphics.cpp
 +++ b/src/dxvk/dxvk_graphics.cpp
 @@ -949,6 +949,7 @@ namespace dxvk {
@@ -150,7 +153,7 @@ index 1f44f57d..bb66498d 100644
 +
 +        m_workers->compileGraphicsPipeline(this, state, DxvkPipelinePriority::High);
 +
-+        return std::make_pair(VK_NULL_HANDLE, DxvkGraphicsPipelineType::FastPipeline);
++        return std::make_pair(VK_NULL_HANDLE, DxvkGraphicsPipelineType::AsyncPipeline);
 +      } else {
  
 -      if (!instance) {
@@ -185,7 +188,7 @@ index 1f44f57d..bb66498d 100644
 +    }
 +
 +    //Write pipeline to state cache
-+    if (gplAsyncCache)
++    if (gplAsyncCache && instance->fastHandle)
 +      this->writePipelineStateToCache(state);
    }
  
@@ -200,10 +203,18 @@ index 1f44f57d..bb66498d 100644
      return handle;
    }
 diff --git a/src/dxvk/dxvk_graphics.h b/src/dxvk/dxvk_graphics.h
-index 5b8ee6b1..5d732497 100644
+index 5b8ee6b1..92d3b70a 100644
 --- a/src/dxvk/dxvk_graphics.h
 +++ b/src/dxvk/dxvk_graphics.h
-@@ -529,11 +529,14 @@ namespace dxvk {
+@@ -344,6 +344,7 @@ namespace dxvk {
+   enum class DxvkGraphicsPipelineType : uint32_t {
+     BasePipeline = 0, ///< Unoptimized pipeline using graphics pipeline libraries
+     FastPipeline = 1, ///< Monolithic pipeline with less dynamic state
++    AsyncPipeline = 2,
+   };
+ 
+ 
+@@ -529,11 +530,14 @@ namespace dxvk {
       * Retrieves a pipeline handle for the given pipeline
       * state. If necessary, a new pipeline will be created.
       * \param [in] state Pipeline state vector
@@ -219,7 +230,7 @@ index 5b8ee6b1..5d732497 100644
      /**
       * \brief Compiles a pipeline
       * 
-@@ -584,6 +587,10 @@ namespace dxvk {
+@@ -584,6 +588,10 @@ namespace dxvk {
  
      alignas(CACHE_LINE_SIZE)
      dxvk::mutex                                   m_mutex;
@@ -327,5 +338,5 @@ index b2b65f4a..0dcd23cb 100644
      Tristate useRawSsbo = Tristate::Auto;
  
 -- 
-2.44.2
+2.45.2
 
