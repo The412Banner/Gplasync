@@ -1,5 +1,6 @@
 # dxvk-gplasync
 https://github.com/Sporif/dxvk-async updated to work with newer dxvk versions and gpl
+Async allows frames to be drawn before shaders finish compiling, giving reduced stuttering in many games. GPL is dxvk feature to reduce stuttering, and this patch enables using both of them with goal of giving as little stuttering as possible.
 
 ## USE AT YOUR OWN RISK IN GAMES WITH ANTICHEAT
 I have not heard of any bans happening because of this but there is chance that some anticheat could get triggered because of async.
@@ -19,3 +20,6 @@ State cache can be used together with GPL that is not possible on upstream DXVK,
 
 # About VRAM usage
 Graphics pipeline library can increase VRAM usage, due to this if you are low on VRAM, it can be better to disable it.  That can be done with option dxvk.enableGraphicsPipelineLibrary=false in dxvk.conf.
+
+# Memory defrag
+New memory defrag feature that was added in dxvk 2.5 might cause some graphical glitching when combined with async. I disabled it by default with v2.5.1-2 release, but with further testing it seems to have stopped happening, im not really sure why it was happening. I decided to re-enable it in 2.5.2-1 release. If you see graphical glitches appear after you have been running game for a while, try disabling memory defrag with option dxvk.enableMemoryDefrag=false.
