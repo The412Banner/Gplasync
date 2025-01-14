@@ -7,3 +7,8 @@ patch -p1 < ../patches/dxvk-gplasync-2.5.3-1.patch
 patch -p1 < ../patches/global-dxvk.conf.patch
 ./package-release.sh gplasync-$CI_COMMIT_REF_NAME . --no-package
 mv dxvk-gplasync-$CI_COMMIT_REF_NAME ../
+cd ..
+
+if [ "$CI_COMMIT_TAG" ]; then
+	./release.sh;
+fi

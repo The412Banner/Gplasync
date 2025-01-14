@@ -11,10 +11,13 @@
 # can use versions as well, like gcc:5.2
 # see https://hub.docker.com/_/gcc/
 
-image: archlinux:base-devel
+variables:
+  PACKAGE_REGISTRY_URL: gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/generic/dxvk-gplasync/$CI_COMMIT_REF_NAME
+
 
 build:
   stage: build
+  image: archlinux:base-devel
   # instead of calling g++ directly you can also use some build toolkit like make
   # install the necessary build tools when needed
   before_script:
@@ -39,8 +42,3 @@ build:
 #  stage: test
 #  script:
 #    - ./runmytests.sh
-
-deploy:
-  stage: deploy
-  script: echo "Define your deployment script!"
-  environment: production
