@@ -8,7 +8,7 @@ sed -i "s/--branch v[0-9]\+\.[0-9]\+\.[0-9]\+/--branch v${dxvk}/" build-gplasync
 sed -i "s/gplasync-[0-9]\+\.[0-9]\+\.[0-9]\+\-[0-9]\+/gplasync-${dxvk}-${gpla}/" build-gplasync.sh 
 
 cp patches/dxvk-gplasync-master.patch patches/dxvk-gplasync-${dxvk}-${gpla}.patch
-sed -i 's/--dirty=-gplasync/--dirty=-${gpla}-gplasync/' patches/dxvk-gplasync-${dxvk}-${gpla}.patch
+sed -i "s/--dirty=-gplasync/--dirty=-${gpla}-gplasync/" patches/dxvk-gplasync-${dxvk}-${gpla}.patch
 
 git add patches/dxvk-gplasync-${dxvk}-${gpla}.patch
 echo example command to commit: git commit -a -m "update to dxvk ${dxvk}"
