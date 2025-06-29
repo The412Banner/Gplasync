@@ -217,7 +217,7 @@ index 3f0bcffe..a1c86c21 100644
      uint32_t                                      m_useCount = 0;
  
 diff --git a/src/dxvk/dxvk_image.h b/src/dxvk/dxvk_image.h
-index 63cba281..01b9795f 100644
+index 63cba281..e1c2dc25 100644
 --- a/src/dxvk/dxvk_image.h
 +++ b/src/dxvk/dxvk_image.h
 @@ -273,6 +273,36 @@ namespace dxvk {
@@ -257,6 +257,16 @@ index 63cba281..01b9795f 100644
  
      /**
       * \brief Checks whether this view overlaps with another one
+@@ -327,6 +357,9 @@ namespace dxvk {
+ 
+     std::array<const DxvkDescriptor*, ViewCount> m_views = { };
+ 
++    uint32_t m_rtBindingFrameId    = 0;
++    uint32_t m_rtBindingFrameCount = 0;
++
+     const DxvkDescriptor* createView(VkImageViewType type) const;
+ 
+     void updateViews();
 diff --git a/src/dxvk/dxvk_options.cpp b/src/dxvk/dxvk_options.cpp
 index 76eb57fa..6a47109f 100644
 --- a/src/dxvk/dxvk_options.cpp
