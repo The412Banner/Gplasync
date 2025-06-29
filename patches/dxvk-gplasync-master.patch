@@ -169,8 +169,8 @@ index b9fbaadc..5f3d0a66 100644
 +    }
 +
 +    //Write pipeline to state cache
-+    if (gplAsyncCache)
-+      this->writePipelineStateToCache(state);
++    //if (gplAsyncCache)
++    //  this->writePipelineStateToCache(state);
    }
  
  
