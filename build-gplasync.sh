@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
-git clone --branch v2.6.2 --recursive https://github.com/doitsujin/dxvk.git
+git clone --branch v2.7 --recursive https://github.com/doitsujin/dxvk.git
 
 cd dxvk
-patch -p1 < ../patches/dxvk-gplasync-2.6.2-1.patch
+patch -p1 < ../patches/dxvk-gplasync-2.7-1.patch
 patch -p1 < ../patches/global-dxvk.conf.patch
 ./package-release.sh gplasync-$CI_COMMIT_REF_NAME . --no-package
 mv dxvk-gplasync-$CI_COMMIT_REF_NAME ../
