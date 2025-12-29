@@ -1,8 +1,8 @@
 diff --git a/meson.build b/meson.build
-index 20b86953..3fce41af 100644
+index f3c81aed..35cd97e9 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -199,7 +199,7 @@ glsl_generator = generator(
+@@ -206,7 +206,7 @@ glsl_generator = generator(
  )
  
  dxvk_version = vcs_tag(
@@ -12,10 +12,10 @@ index 20b86953..3fce41af 100644
    output: 'version.h',
  )
 diff --git a/src/dxvk/dxvk_context.cpp b/src/dxvk/dxvk_context.cpp
-index a599ea62..bdff3af3 100644
+index 76f78210..c71e4603 100644
 --- a/src/dxvk/dxvk_context.cpp
 +++ b/src/dxvk/dxvk_context.cpp
-@@ -6075,7 +6075,8 @@ namespace dxvk {
+@@ -5759,7 +5759,8 @@ namespace dxvk {
                           DxvkContextFlag::GpDirtyDepthBias));
  
      // Retrieve and bind actual Vulkan pipeline handle
@@ -25,7 +25,7 @@ index a599ea62..bdff3af3 100644
  
      if (unlikely(!pipelineInfo.handle))
        return false;
-@@ -6714,7 +6715,7 @@ namespace dxvk {
+@@ -6407,7 +6408,7 @@ namespace dxvk {
    }
  
  
@@ -34,7 +34,7 @@ index a599ea62..bdff3af3 100644
      if (m_flags.test(DxvkContextFlag::GpDirtyRenderTargets)) {
        m_flags.clr(DxvkContextFlag::GpDirtyRenderTargets);
  
-@@ -6755,6 +6756,11 @@ namespace dxvk {
+@@ -6445,6 +6446,11 @@ namespace dxvk {
  
        m_state.om.framebufferInfo = std::move(fbInfo);
  
@@ -46,7 +46,7 @@ index a599ea62..bdff3af3 100644
        m_flags.set(DxvkContextFlag::GpDirtyPipelineState);
      } else if (m_flags.test(DxvkContextFlag::GpRenderPassNeedsFlush)) {
        // End render pass to flush pending resolves
-@@ -6762,6 +6768,14 @@ namespace dxvk {
+@@ -6452,6 +6458,14 @@ namespace dxvk {
      }
    }
  
@@ -59,9 +59,9 @@ index a599ea62..bdff3af3 100644
 +    return true;
 +  }
  
-   void DxvkContext::applyRenderTargetLoadLayouts() {
-     for (uint32_t i = 0; i < MaxNumRenderTargets; i++)
-@@ -7428,7 +7442,7 @@ namespace dxvk {
+   bool DxvkContext::flushDeferredClear(
+     const DxvkImage&              image,
+@@ -7022,7 +7036,7 @@ namespace dxvk {
      // End render pass if there are pending resolves
      if (m_flags.any(DxvkContextFlag::GpDirtyRenderTargets,
                      DxvkContextFlag::GpRenderPassNeedsFlush))
@@ -71,19 +71,19 @@ index a599ea62..bdff3af3 100644
      if (m_flags.test(DxvkContextFlag::GpXfbActive)) {
        // If transform feedback is active and there is a chance that we might
 diff --git a/src/dxvk/dxvk_context.h b/src/dxvk/dxvk_context.h
-index 2389c0c9..ee0e2940 100644
+index 1b86b0fa..38b2d4bb 100644
 --- a/src/dxvk/dxvk_context.h
 +++ b/src/dxvk/dxvk_context.h
-@@ -1723,7 +1723,7 @@ namespace dxvk {
+@@ -1706,7 +1706,7 @@ namespace dxvk {
      DxvkFramebufferInfo makeFramebufferInfo(
        const DxvkRenderTargets&      renderTargets);
  
 -    void updateRenderTargets();
 +    void updateRenderTargets(bool isDraw = false);
      
-     void applyRenderTargetLoadLayouts();
- 
-@@ -1856,6 +1856,8 @@ namespace dxvk {
+     bool flushDeferredClear(
+       const DxvkImage&              image,
+@@ -1820,6 +1820,8 @@ namespace dxvk {
      Rc<DxvkSampler> createBlitSampler(
              VkFilter                  filter);
  
@@ -93,10 +93,10 @@ index 2389c0c9..ee0e2940 100644
        const DxvkGraphicsPipelineShaders&  shaders);
  
 diff --git a/src/dxvk/dxvk_graphics.cpp b/src/dxvk/dxvk_graphics.cpp
-index b9fbaadc..e799c866 100644
+index 152f1de4..b39a8399 100644
 --- a/src/dxvk/dxvk_graphics.cpp
 +++ b/src/dxvk/dxvk_graphics.cpp
-@@ -1061,7 +1061,8 @@ namespace dxvk {
+@@ -1069,7 +1069,8 @@ namespace dxvk {
  
  
    DxvkGraphicsPipelineHandle DxvkGraphicsPipeline::getPipelineHandle(
@@ -106,7 +106,7 @@ index b9fbaadc..e799c866 100644
      DxvkGraphicsPipelineInstance* instance = this->findInstance(state);
  
      if (unlikely(!instance)) {
-@@ -1069,11 +1070,22 @@ namespace dxvk {
+@@ -1077,11 +1078,22 @@ namespace dxvk {
        if (!this->validatePipelineState(state, true))
          return DxvkGraphicsPipelineHandle();
  
@@ -130,7 +130,7 @@ index b9fbaadc..e799c866 100644
          // Keep pipeline object locked, at worst we're going to stall
          // a state cache worker and the current thread needs priority.
          bool canCreateBasePipeline = this->canCreateBasePipeline(state);
-@@ -1108,7 +1120,7 @@ namespace dxvk {
+@@ -1116,7 +1128,7 @@ namespace dxvk {
  
        // Do not compile if this pipeline can be fast linked. This essentially
        // disables the state cache for pipelines that do not benefit from it.
@@ -139,7 +139,7 @@ index b9fbaadc..e799c866 100644
          return;
  
        // Prevent other threads from adding new instances and check again
-@@ -1384,6 +1396,8 @@ namespace dxvk {
+@@ -1397,6 +1409,8 @@ namespace dxvk {
      if (handle)
        m_fastPipelines.insert({ key, handle });
  
@@ -149,10 +149,10 @@ index b9fbaadc..e799c866 100644
    }
  
 diff --git a/src/dxvk/dxvk_graphics.h b/src/dxvk/dxvk_graphics.h
-index 3f0bcffe..e8875181 100644
+index 98a3f184..6fafa9fc 100644
 --- a/src/dxvk/dxvk_graphics.h
 +++ b/src/dxvk/dxvk_graphics.h
-@@ -550,11 +550,13 @@ namespace dxvk {
+@@ -545,11 +545,13 @@ namespace dxvk {
       * Retrieves a pipeline handle for the given pipeline
       * state. If necessary, a new pipeline will be created.
       * \param [in] state Pipeline state vector
@@ -168,7 +168,7 @@ index 3f0bcffe..e8875181 100644
      /**
       * \brief Compiles a pipeline
       * 
-@@ -617,6 +619,11 @@ namespace dxvk {
+@@ -612,6 +614,10 @@ namespace dxvk {
  
      alignas(CACHE_LINE_SIZE)
      dxvk::mutex                                   m_mutex;
@@ -176,15 +176,14 @@ index 3f0bcffe..e8875181 100644
 +    dxvk::mutex                                   m_asyncMutex;
 +
 +    bool                                          m_async = false;
-+
-     sync::List<DxvkGraphicsPipelineInstance>      m_pipelines;
-     uint32_t                                      m_useCount = 0;
- 
+     DxvkPipelineVariantTable<
+       DxvkGraphicsPipelineStateInfo,
+       DxvkGraphicsPipelineInstance>               m_pipelines;
 diff --git a/src/dxvk/dxvk_image.h b/src/dxvk/dxvk_image.h
-index 63cba281..c3e2b347 100644
+index 1498b8d9..1e635ad3 100644
 --- a/src/dxvk/dxvk_image.h
 +++ b/src/dxvk/dxvk_image.h
-@@ -274,6 +274,37 @@ namespace dxvk {
+@@ -275,6 +275,37 @@ namespace dxvk {
            && this->info().format   == view->info().format;
      }
  
@@ -222,7 +221,7 @@ index 63cba281..c3e2b347 100644
      /**
       * \brief Checks whether this view overlaps with another one
       *
-@@ -327,6 +358,9 @@ namespace dxvk {
+@@ -328,6 +359,9 @@ namespace dxvk {
  
      std::array<const DxvkDescriptor*, ViewCount> m_views = { };
  
@@ -233,7 +232,7 @@ index 63cba281..c3e2b347 100644
  
      void updateViews();
 diff --git a/src/dxvk/dxvk_options.cpp b/src/dxvk/dxvk_options.cpp
-index 76eb57fa..89209ef7 100644
+index 8c18f3b0..dc091705 100644
 --- a/src/dxvk/dxvk_options.cpp
 +++ b/src/dxvk/dxvk_options.cpp
 @@ -3,6 +3,7 @@
@@ -245,7 +244,7 @@ index 76eb57fa..89209ef7 100644
      enableMemoryDefrag    = config.getOption<Tristate>("dxvk.enableMemoryDefrag",     Tristate::Auto);
      numCompilerThreads    = config.getOption<int32_t> ("dxvk.numCompilerThreads",     0);
 diff --git a/src/dxvk/dxvk_options.h b/src/dxvk/dxvk_options.h
-index a0d07d38..d9c1e453 100644
+index 380f5ecd..0bdb7d6c 100644
 --- a/src/dxvk/dxvk_options.h
 +++ b/src/dxvk/dxvk_options.h
 @@ -29,6 +29,9 @@ namespace dxvk {
@@ -259,5 +258,5 @@ index a0d07d38..d9c1e453 100644
      Tristate useRawSsbo = Tristate::Auto;
  
 -- 
-2.45.3
+2.51.2
 
