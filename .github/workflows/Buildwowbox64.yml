@@ -1,84 +1,126 @@
-name: Build WowBox64 Nightly
+name: Build Box64 & WOWBox64 Nightly
 
 on:
   schedule:
-    - cron: '30 2 * * *' # Runs at 2:30 AM (after the main Box64 build)
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
-  build:
-    # Native ARM64 runner (Free for public repos)
-    runs-on: ubuntu-24.04-arm
-    
-    strategy:
-      matrix:
-        include:
-          - platform: "RK3588"
-            flags: "-DRK3588=1"
-          - platform: "SD845"
-            flags: "-DSD845=1"
-          - platform: "GENERIC_ARM64"
-            flags: "-DARM64=1"
-
+  build-android-native:
+    name: Build Box64 (Android Native)
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout Box64
-      uses: actions/checkout@v4
-      with:
-        repository: ptitSeb/box64
-        path: box64
-        fetch-depth: 0
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake ninja-build build-essential
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 p7zip-full wget tar file
 
-    - name: Configure and Build WowBox64
-      run: |
-        mkdir build && cd build
-        # The -DWOWBOX64=1 flag builds the DLL instead of the standalone binary
-        cmake ../box64 ${{ matrix.flags }} -DWOWBOX64=1 -DCMAKE_BUILD_TYPE=Release -G Ninja
-        ninja
+      - name: Setup Android NDK
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+          echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" >> $GITHUB_ENV
 
-    - name: Prepare Package
-      run: |
-        # 1. Capture Commit Hash and Date
-        cd box64
-        COMMIT_HASH=$(git rev-parse --short HEAD)
-        BUILD_DATE=$(date +'%Y-%m-%d')
-        cd ..
+      - name: Clone Box64
+        run: git clone https://github.com/ptitSeb/box64 source
 
-        # 2. Create the internal folder structure for the .wcp
-        # This path is standard for Wine/Hangover integrations
-        mkdir -p packaging/usr/local/lib/wine/x86_64-unix
-        
-        # 3. Use find to locate the DLL regardless of where Ninja put it
-        # This fixes the "cannot stat: No such file" error
-        find build -name "wowbox64.dll*" -exec cp {} packaging/usr/local/lib/wine/x86_64-unix/ \;
-        
-        # Safety check: Stop if no files were found
-        if [ -z "$(ls -A packaging/usr/local/lib/wine/x86_64-unix/)" ]; then
-          echo "Error: wowbox64.dll was not found in the build folder!"
-          exit 1
-        fi
+      - name: Get Version Info
+        run: |
+          cd source
+          MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
+          MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
+          REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+          VERSION="$MAJOR.$MINOR.$REVISION"
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "FULL_VERSION=${VERSION}-${COMMIT}-nightly" >> $GITHUB_ENV
 
-        # 4. Create profile.json matching your original format
-        cat <<EOF > packaging/profile.json
-        {
-          "type": "WowBox64",
-          "variant": "${{ matrix.platform }}",
-          "versionName": "wow-nightly-${COMMIT_HASH}",
-          "versionCode": ${{ github.run_number }},
-          "description": "WowBox64 (WOW64 DLL) for ${{ matrix.platform }}\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
-          "author": "Blank"
-        }
-        EOF
+      - name: Configure and Build
+        run: |
+          mkdir build
+          cd build
+          cmake ../source \
+            -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} \
+            -DANDROID=1 \
+            -DARM_DYNAREC=1 \
+            -DBAD_SIGNAL=1 \
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
 
-        # 5. Compress into the final .wcp archive
-        tar -cJf "wowbox64-${{ matrix.platform }}-${COMMIT_HASH}.wcp" -C packaging .
+      - name: Package
+        run: |
+          cd build
+          echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
+          tar -cJf "box64-${{ env.FULL_VERSION }}.wcp" box64 profile.json
 
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: wowbox64-${{ matrix.platform }}-nightly
-        path: "*.wcp"
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: box64-android-native
+          path: build/box64-*.wcp
+          compression-level: 0
+
+  build-wowbox64:
+    name: Build WOWBox64 (MinGW)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 wget tar
+
+      - name: Setup Toolchain
+        run: |
+          LLVM_MINGW_VERSION=20240619
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-*.tar.xz
+          echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV
+
+      - name: Clone and Patch
+        run: |
+          git clone https://github.com/ptitSeb/box64 source
+          cd source
+          echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); }' >> wine/common/crt.c
+
+      - name: Get Version Info
+        run: |
+          cd source
+          MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
+          MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
+          REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+          VERSION="$MAJOR.$MINOR.$REVISION"
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "FULL_VERSION=${VERSION}-${COMMIT}-nightly" >> $GITHUB_ENV
+
+      - name: Configure and Build
+        run: |
+          export PATH=$PATH:${{ env.MINGW_PATH }}
+          mkdir build
+          cd build
+          cmake ../source \
+            -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc \
+            -DWOW64=1 \
+            -DARM_DYNAREC=1 \
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc) wowbox64
+
+      - name: Package
+        run: |
+          cd build/wowbox64-prefix/src/wowbox64-build
+          echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
+          mkdir -p system32 && cp wowbox64.dll system32/
+          tar -cJf "WOWBox64-${{ env.FULL_VERSION }}.wcp" system32 profile.json
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wowbox64-mingw
+          path: build/wowbox64-prefix/src/wowbox64-build/WOWBox64-*.wcp
+          compression-level: 0
