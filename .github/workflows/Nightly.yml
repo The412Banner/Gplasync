@@ -2,54 +2,52 @@ name: Nightly DXVK 2.7.1 GPLAsync Build
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs daily at midnight
-  workflow_dispatch:      # Allows manual trigger
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Essential for creating releases
     steps:
       - name: Checkout Patches
-        uses: actions/checkout@v4 # This gets the /patches/ folder from your repo
+        uses: actions/checkout@v4
 
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build mingw-w64 glslang-tools wine
+          sudo apt-get install -y meson ninja-build mingw-w64 glslang-tools wine zip
 
       - name: Clone and Patch
         run: |
-          # 1. Clone specific version to ensure patch compatibility
           git clone --branch v2.7.1 --recursive https://github.com/doitsujin/dxvk.git
-          
-          # 2. Apply your provided patches
           cd dxvk
+          # Applying patches found in your repo
           patch -p1 < ../patches/dxvk-gplasync-2.7.1-1.patch
           patch -p1 < ../patches/global-dxvk.conf.patch
-          
-          # 3. Compile the drivers
           ./package-release.sh gplasync-nightly . --no-package
           cd ..
 
       - name: Organize Artifacts
         run: |
-          # Prepare Raw DLL folder
+          # 1. Create Raw DLL Zip
           mkdir -p raw_dlls/x64 raw_dlls/x32
           cp dxvk/gplasync-nightly/x64/*.dll raw_dlls/x64/
           cp dxvk/gplasync-nightly/x32/*.dll raw_dlls/x32/
-          
-          # Prepare WCP structure
+          zip -r raw_dlls.zip raw_dlls/
+
+          # 2. Create WCP Package
           mkdir -p wcp_content/system32 wcp_content/syswow64
           cp raw_dlls/x64/*.dll wcp_content/system32/
           cp raw_dlls/x32/*.dll wcp_content/syswow64/
           
-          # Create Winlator profile
           cat <<EOF > wcp_content/profile.json
           {
             "type": "DXVK",
-            "versionName": "2.7.1-GPLAsync-Nightly",
+            "versionName": "2.7.1-GPLAsync-$(date +'%Y%m%d')",
             "versionCode": $(date +%Y%m%d),
-            "description": "Nightly build of DXVK 2.7.1 with GPLAsync",
+            "description": "Nightly Build of DXVK 2.7.1 with GPLAsync",
             "author": "The412Banner",
             "files": [
               { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
@@ -63,7 +61,6 @@ jobs:
             ]
           }
           EOF
-          
           tar -cJf dxvk-gplasync-nightly.wcp -C wcp_content .
 
       - name: Create GitHub Release
@@ -71,6 +68,8 @@ jobs:
         with:
           tag_name: nightly-${{ github.run_id }}
           name: Nightly Build - $(date +'%Y-%m-%d')
+          draft: false
+          prerelease: true
           files: |
             dxvk-gplasync-nightly.wcp
             raw_dlls.zip
