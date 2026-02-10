@@ -1,46 +1,71 @@
-  build-fexcore-native:
-    name: Build FEXCore (Android Native)
-    runs-on: ubuntu-latest
+name: Build FEXCore Native Nightly
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    # 1. Increase timeout to 2 hours to ensure it has time to finish
+    timeout-minutes: 120 
+    
     steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git cmake ninja-build python3 wget tar clang-15 llvm-15
+    - name: Checkout FEX
+      uses: actions/checkout@v4
+      with:
+        repository: FEX-Emu/FEX
+        path: fex
+        submodules: recursive
+        fetch-depth: 0
 
-      - name: Setup Android NDK
-        run: |
-          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
-          unzip -q android-ndk-r26b-linux.zip
-          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build clang llvm lld libssl-dev \
+          python3-setuptools qt6-base-dev qt6-declarative-dev libsdl2-dev
 
-      - name: Clone FEX
-        run: git clone --recursive https://github.com/FEX-Emu/FEX source
+    - name: Configure and Build
+      run: |
+        mkdir build && cd build
+        # 2. Set -DENABLE_LTO=False to speed up the build significantly
+        CC=clang CXX=clang++ cmake ../fex \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DUSE_LINKER=lld \
+          -DENABLE_LTO=False \
+          -DBUILD_TESTING=False \
+          -G Ninja
+        
+        # 3. Only build the essential tools to save time
+        ninja FEXInterpreter FEXLoader FEXServer FEXConfig
 
-      - name: Configure and Build
-        run: |
-          mkdir build && cd build
-          # Using the NDK Toolchain file is the key "perk" for Android builds
-          cmake ../source \
-            -DCMAKE_TOOLCHAIN_FILE=${{ env.ANDROID_NDK_HOME }}/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-28 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DENABLE_LTO=True \
-            -G Ninja
-          ninja FEXInterpreter FEXLoader FEXServer
+    - name: Prepare Package
+      run: |
+        COMMIT_HASH=$(git -C fex rev-parse --short HEAD)
+        BUILD_DATE=$(date +'%Y-%m-%d')
 
-      - name: Package
-        run: |
-          COMMIT=$(git -C source rev-parse --short HEAD)
-          mkdir -p pkg/usr/local/bin
-          cp build/Source/Tools/FEXInterpreter/FEXInterpreter pkg/usr/local/bin/
-          cp build/Source/Tools/FEXLoader/FEXLoader pkg/usr/local/bin/
-          
-          echo '{"type": "FEXCore", "versionName": "fex-nightly-'${COMMIT}'", "versionCode": 0, "description": "FEXCore Nightly. Author: MaxsTechReview", "files": [{"source": "usr/local/bin/FEXInterpreter", "target": "${bindir}/FEXInterpreter"}]}' > pkg/profile.json
-          tar -cJf "FEXCore-nightly-${COMMIT}.wcp" -C pkg .
+        mkdir -p packaging/usr/local/bin
+        # Search for the binaries regardless of where Ninja put them
+        find build/Source/Tools -type f -executable \( -name "FEXInterpreter" -o -name "FEXLoader" -o -name "FEXServer" -o -name "FEXConfig" \) -exec cp {} packaging/usr/local/bin/ \;
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: fex-android-native
-          path: "*.wcp"
+        cat <<EOF > packaging/profile.json
+        {
+          "type": "FEXCore-Native",
+          "versionName": "fex-native-${COMMIT_HASH}",
+          "versionCode": ${{ github.run_number }},
+          "description": "FEXCore Native Linux ARM64\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
+          "author": "Blank",
+          "files": [
+            { "source": "usr/local/bin/FEXInterpreter", "target": "${bindir}/FEXInterpreter" }
+          ]
+        }
+        EOF
+
+        tar -cJf "fex-native-${COMMIT_HASH}.wcp" -C packaging .
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: fex-native-nightly
+        path: "*.wcp"
