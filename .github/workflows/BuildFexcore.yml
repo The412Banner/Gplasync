@@ -1,34 +1,52 @@
-name: Wine DLL artifacts
+name: Build Official FEX Wine DLLs
 
 on:
-  workflow_dispatch: # Allows you to run it manually
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04-arm # Use GitHub's native ARM64 runners
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        repository: FEX-Emu/FEX # Build from the source
-        submodules: recursive
-        fetch-depth: 0
+  build-dlls:
+    # Using GitHub's native ARM64 runner for speed
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
 
-    - name: Install Build Deps
+    steps:
+    - name: Checkout Official FEX
+      uses: actions/checkout@v4
+      with:
+        repository: FEX-Emu/FEX
+        submodules: recursive
+        fetch-depth: 1
+
+    - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build clang llvm lld libssl-dev mingw-w64
+        sudo apt-get install -y cmake ninja-build clang llvm lld mingw-w64
 
     - name: Build WOW64 DLL
       run: |
-        mkdir build-wow && cd build-wow
-        cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
+        mkdir build && cd build
+        # We use the internal FEX toolchain for MinGW
+        cmake .. -GNinja \
+          -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_TOOLCHAIN_FILE=Data/CMake/toolchain_mingw.cmake \
           -DMINGW_TRIPLE=aarch64-w64-mingw32 \
-          -DENABLE_LTO=False
-        ninja
+          -DENABLE_LTO=False \
+          -DBUILD_TESTING=False
+        ninja wowbox64.dll
 
-    - name: Upload
+    - name: Package for Winlator (.wcp)
+      run: |
+        COMMIT=$(git rev-parse --short HEAD)
+        mkdir -p pkg/system32
+        # Find the newly built DLL and move it to the package folder
+        find build -name "wowbox64.dll" -exec cp {} pkg/system32/ \;
+        
+        echo "{\"type\": \"WOWBox64\", \"versionName\": \"fex-dll-${COMMIT}\", \"versionCode\": ${{ github.run_number }}, \"description\": \"Official FEX WOW64 DLL\", \"files\": [{\"source\": \"system32/wowbox64.dll\", \"target\": \"\${system32}/wowbox64.dll\"}]}" > pkg/profile.json
+        
+        tar -cJf "FEX-WOW64-Nightly.wcp" -C pkg .
+
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: fex-wine-dlls
-        path: "**/wowbox64.dll"
+        name: fex-wine-dll
+        path: "*.wcp"
