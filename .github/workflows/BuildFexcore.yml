@@ -1,26 +1,108 @@
-name: Pull FEX Wine Artifacts
+name: Build FEXCore Nightly (Winlator)
 
 on:
-  workflow_dispatch: # Allows you to run this manually
   schedule:
-    - cron: '0 0 * * *' # Optional: Run daily to keep artifacts updated
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
-  download-fex-artifacts:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout your repo
-        uses: actions/checkout@v4
+    - name: Checkout FEX
+      uses: actions/checkout@v4
+      with:
+        repository: FEX-Emu/FEX
+        submodules: recursive
+        fetch-depth: 0
 
-      - name: Download artifacts from FEX-Emu
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          repo: FEX-Emu/FEX
-          workflow: wine_dll_artifacts.yml
-          workflow_conclusion: success
-          # name: wine-artifacts # Optional: specify a specific artifact name if known
-          path: ./fex-artifacts # Directory where artifacts will be saved
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build python3
 
-      - name: Verify downloaded files
-        run: ls -R ./fex-artifacts
+    - name: Setup LLVM-MinGW Toolchain
+      # FEX requires a modern Clang/LLVM-MinGW toolchain that supports arm64ec
+      run: |
+        wget https://github.com/mstorsjo/llvm-mingw/releases/download/20240917/llvm-mingw-20240917-ucrt-ubuntu-20.04-x86_64.tar.xz
+        tar -xf llvm-mingw-20240917-ucrt-ubuntu-20.04-x86_64.tar.xz
+        # Add toolchain to PATH for subsequent steps
+        echo "$(pwd)/llvm-mingw-20240917-ucrt-ubuntu-20.04-x86_64/bin" >> $GITHUB_PATH
+
+    - name: Build libarm64ec.dll (ARM64EC)
+      run: |
+        mkdir build-arm64ec
+        cd build-arm64ec
+        
+        # Configure for ARM64EC (Windows on ARM64)
+        cmake .. -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=../Data/CMake/toolchain_mingw.cmake \
+          -DMINGW_TRIPLE=arm64ec-w64-mingw32 \
+          -DCMAKE_INSTALL_PREFIX=./install \
+          -DENABLE_LTO=False \
+          -DBUILD_TESTING=False
+          
+        ninja
+        # Note: The output filename in FEX source is usually libarm64ecfex.dll
+        # We will rename it during packaging to match your 'libarm64ec.dll'
+
+    - name: Build libwow64fex.dll (WOW64)
+      run: |
+        mkdir build-wow64
+        cd build-wow64
+        
+        # Configure for AArch64 (Wine WOW64 Module)
+        cmake .. -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=../Data/CMake/toolchain_mingw.cmake \
+          -DMINGW_TRIPLE=aarch64-w64-mingw32 \
+          -DCMAKE_INSTALL_PREFIX=./install \
+          -DENABLE_LTO=False \
+          -DBUILD_TESTING=False
+          
+        ninja
+
+    - name: Prepare Package
+      run: |
+        # 1. Capture Commit Hash and Date
+        COMMIT_HASH=$(git rev-parse --short HEAD)
+        BUILD_DATE=$(date +'%Y-%m-%d')
+
+        # 2. Create Packaging Structure (system32 folder as you requested)
+        mkdir -p packaging/system32
+        
+        # 3. Copy and Rename Files
+        # Source: build-arm64ec/libarm64ecfex.dll -> Target: libarm64ec.dll
+        cp build-arm64ec/libarm64ecfex.dll packaging/system32/libarm64ec.dll
+        
+        # Source: build-wow64/libwow64fex.dll -> Target: libwow64fex.dll
+        cp build-wow64/libwow64fex.dll packaging/system32/libwow64fex.dll
+        
+        # 4. Create profile.json
+        cat <<EOF > packaging/profile.json
+        {
+          "type": "FEXCore",
+          "versionName": "Nightly-${COMMIT_HASH}",
+          "versionCode": ${{ github.run_number }},
+          "description": "FEXCore Nightly (Winlator DLLs)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
+          "author": "Blank",
+          "files": [
+            { "source": "system32/libarm64ec.dll", "target": "\${system32}/libarm64ec.dll" },
+            { "source": "system32/libwow64fex.dll", "target": "\${system32}/libwow64fex.dll" }
+          ]
+        }
+        EOF
+
+    - name: Create WCP Package
+      run: |
+        COMMIT_HASH=$(git rev-parse --short HEAD)
+        tar -cJf FEXCore-Nightly-${COMMIT_HASH}.wcp -C packaging .
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: fexcore-nightly-build
+        path: |
+          *.wcp
