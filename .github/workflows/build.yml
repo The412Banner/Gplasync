@@ -1,0 +1,36 @@
+name: Build Tagged DXVK GPLAsync
+on:
+  workflow_dispatch: # Allows you to start the build manually
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Your Repo
+        uses: actions/checkout@v4 # Gets your patches folder
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build mingw-w64 glslang-tools wine
+      
+      - name: Clone and Patch
+        run: |
+          # Matches your bash script logic
+          git clone --branch v2.7.1 --recursive https://github.com/doitsujin/dxvk.git
+          cd dxvk
+          patch -p1 < ../patches/dxvk-gplasync-2.7.1-1.patch
+          patch -p1 < ../patches/global-dxvk.conf.patch
+          
+          # Run the build script
+          ./package-release.sh gplasync-build . --no-package
+          
+          # Move results to root for uploading
+          mv dxvk-gplasync-build ../output_dlls
+      
+      - name: Upload Finished DLLs
+        uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-v2.7.1-gplasync
+          path: output_dlls/
+          
