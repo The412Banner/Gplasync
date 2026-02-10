@@ -2,15 +2,15 @@ name: Fetch FEXCore Nightly (From Upstream)
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs daily at midnight
-  workflow_dispatch:      # Allows manual trigger
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   fetch-and-package:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Needed to create releases if you add that later
-      actions: read   # Needed to download artifacts
+      contents: write
+      actions: read
 
     steps:
     - name: Checkout Repository
@@ -20,33 +20,41 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # 1. Find the latest successful run ID for the 'wine_dll_artifacts.yml' workflow on branch 'main'
-        # We filter for status=success and branch=main to ensure we get a good build.
+        # 1. Find the latest successful run ID for 'wine_dll_artifacts.yml' on 'main'
         RUN_ID=$(gh run list --repo FEX-Emu/FEX --workflow wine_dll_artifacts.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+        echo "Found Run ID: $RUN_ID"
+
+        # 2. List artifacts in this run to find the correct name
+        # We grab the first artifact name found in this run
+        ARTIFACT_NAME=$(gh run view $RUN_ID --repo FEX-Emu/FEX --json artifacts --jq '.artifacts[0].name')
         
-        echo "Found latest successful run ID: $RUN_ID"
+        if [ -z "$ARTIFACT_NAME" ] || [ "$ARTIFACT_NAME" = "null" ]; then
+          echo "::error::No artifacts found in run $RUN_ID"
+          exit 1
+        fi
         
-        # 2. Download the 'wine-dll-artifacts' from that run
-        gh run download $RUN_ID --repo FEX-Emu/FEX --name wine-dll-artifacts --dir downloaded_artifacts
+        echo "Found Artifact Name: $ARTIFACT_NAME"
+
+        # 3. Download the artifact using the discovered name
+        gh run download $RUN_ID --repo FEX-Emu/FEX --name "$ARTIFACT_NAME" --dir downloaded_artifacts
 
     - name: Repackage DLLs
       run: |
-        # Create your specific directory structure
         mkdir -p packaging/system32
         
-        # Copy and RENAME the files as per your previous request
-        # FEX upstream names them 'libarm64ecfex.dll', you wanted 'libarm64ec.dll'
-        cp downloaded_artifacts/libarm64ecfex.dll packaging/system32/libarm64ec.dll
-        cp downloaded_artifacts/libwow64fex.dll packaging/system32/libwow64fex.dll
+        # Check what we actually downloaded
+        ls -R downloaded_artifacts/
+        
+        # Copy and RENAME the files (upstream names -> your names)
+        # Note: We use 'find' to be safer in case the folder structure varies inside the zip
+        find downloaded_artifacts -name "libarm64ecfex.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
+        find downloaded_artifacts -name "libwow64fex.dll" -exec cp {} packaging/system32/libwow64fex.dll \;
 
     - name: Create profile.json
       run: |
-        # Generate dynamic variables for the JSON
         BUILD_DATE=$(date +'%Y-%m-%d')
-        # We use the current repo's run number for version code, or you can fetch the upstream commit hash if preferred
         VERSION_CODE=${{ github.run_number }}
         
-        # Create the JSON file
         cat <<EOF > packaging/profile.json
         {
           "type": "FEXCore",
