@@ -1,0 +1,64 @@
+name: Build Box64 Nightly
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # Runs at 2 AM
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # Define different hardware optimizations here
+        include:
+          - platform: "RK3588"
+            flags: "-DRK3588=1"
+          - platform: "ARM64_GENERIC"
+            flags: "-DARM64=1"
+          - platform: "SD845"
+            flags: "-DSD845=1"
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Box64
+      uses: actions/checkout@v4
+      with:
+        repository: ptitSeb/box64
+        path: box64
+        fetch-depth: 0
+
+    - name: Install Dependencies
+      run: sudo apt-get update && sudo apt-get install -y cmake ninja-build build-essential
+
+    - name: Configure and Build
+      run: |
+        mkdir build && cd build
+        # Use the matrix flags for specialized optimization
+        cmake ../box64 ${{ matrix.flags }} -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja
+        ninja
+
+    - name: Prepare Packaging
+      run: |
+        COMMIT_HASH=$(git -C box64 rev-parse --short HEAD)
+        BUILD_DATE=$(date +'%Y-%m-%d')
+        
+        mkdir -p packaging/usr/local/bin
+        cp build/box64 packaging/usr/local/bin/
+        
+        # Create profile.json tailored for Box64
+        cat <<EOF > packaging/profile.json
+        {
+          "type": "Box64",
+          "variant": "${{ matrix.platform }}",
+          "versionName": "nightly-${COMMIT_HASH}",
+          "versionCode": ${{ github.run_number }},
+          "description": "Box64 Nightly for ${{ matrix.platform }}\nCommit: ${COMMIT_HASH}"
+        }
+        EOF
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: box64-${{ matrix.platform }}-nightly
+        path: packaging/
+        
