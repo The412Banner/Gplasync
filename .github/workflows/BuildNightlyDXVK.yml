@@ -1,69 +1,74 @@
-name: Build DXVK Nightly
+name: Build DXVK Nightly (GPLAsync)
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 0 * * *' # Runs daily at midnight
+  workflow_dispatch:      # Allows manual trigger
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # REQUIRED: Allows the workflow to push the file back to your repo
 
     steps:
-    - name: Checkout DXVK
+    - name: Checkout Your Nightlies Repo
+      uses: actions/checkout@v4
+      with:
+        path: nightlies-repo # Checks out your repo to a subfolder
+
+    - name: Checkout DXVK Source
       uses: actions/checkout@v4
       with:
         repository: doitsujin/dxvk
         path: dxvk
         submodules: recursive
-        fetch-depth: 0 # Important: fetch full history so we can get correct commit info
+        fetch-depth: 0
 
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y meson ninja-build mingw-w64 glslang-tools wine
+        sudo apt-get install -y meson ninja-build mingw-w64 glslang-tools wine zip
 
     - name: Download and Apply Patch
       run: |
         cd dxvk
-        # Download the RAW patch file directly from GitLab
+        # Download the patch
         wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
-        
         # Apply the patch
         git apply dxvk-gplasync-master.patch
 
     - name: Build DXVK
       run: |
         cd dxvk
+        # Build artifacts will be output to ../dxvk-built
         ./package-release.sh master ../dxvk-built --no-package
 
-    - name: Generate Changelog
+    - name: Prepare Winlator Package (.wcp)
       run: |
-        cd dxvk
-        git log --since="24 hours ago" > ../changelog.txt
+        # 1. Create packaging structure
+        mkdir -p packaging/system32
+        mkdir -p packaging/syswow64
 
-    - name: Prepare Package
-      run: |
-        # 1. Capture Commit Hash and Date
+        # 2. Copy DLLs to their respective folders
+        # dxvk-built/x64 contains 64-bit DLLs -> goes to system32 (Winlator/Wine convention)
+        cp dxvk-built/x64/*.dll packaging/system32/
+        # dxvk-built/x32 contains 32-bit DLLs -> goes to syswow64
+        cp dxvk-built/x32/*.dll packaging/syswow64/
+
+        # 3. Create profile.json
         cd dxvk
         COMMIT_HASH=$(git rev-parse --short HEAD)
         BUILD_DATE=$(date +'%Y-%m-%d')
         cd ..
-
-        # 2. Setup directories
-        mkdir -p packaging/system32 packaging/syswow64
-        cp dxvk-built/dxvk-master/x64/*.dll packaging/system32/
-        cp dxvk-built/dxvk-master/x32/*.dll packaging/syswow64/
         
-        # 3. Create Dynamic profile.json
-        # We use ${GITHUB_RUN_NUMBER} for versionCode so it auto-increments (1, 2, 3...)
         cat <<EOF > packaging/profile.json
         {
           "type": "DXVK",
-          "versionName": "2.7.1-gplasync-${COMMIT_HASH}",
+          "versionName": "2.5.3-gplasync-${COMMIT_HASH}",
           "versionCode": ${{ github.run_number }},
-          "description": "DXVK Nightly (GPLAsync)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
-          "author": "Blank",
+          "description": "DXVK GPLAsync Nightly\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
+          "author": "The412Banner",
           "files": [
             { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
             { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
@@ -77,15 +82,35 @@ jobs:
         }
         EOF
 
-    - name: Create WCP Package
-      # We put the commit hash in the filename too for easier file management
-      run: |
-        cd dxvk
-        COMMIT_HASH=$(git rev-parse --short HEAD)
-        cd ..
-        tar -cJf dxvk-gplasync-${COMMIT_HASH}.wcp -C packaging .
+        # 4. Zip contents into a .wcp file
+        cd packaging
+        zip -r ../DXVK-GPLAsync-Nightly.wcp .
 
-    - name: Upload Artifacts
+    - name: Commit and Push Result
+      run: |
+        cd nightlies-repo
+        
+        # Configure Git Identity
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        
+        # Create destination folder if it doesn't exist
+        mkdir -p "dxvk-gplasync nightly"
+        
+        # Move the new WCP file into the repo folder
+        # We overwrite the existing file to keep the repo size manageable
+        cp ../DXVK-GPLAsync-Nightly.wcp "dxvk-gplasync nightly/DXVK-GPLAsync-Nightly.wcp"
+        
+        # Stage and Commit
+        git add "dxvk-gplasync nightly/DXVK-GPLAsync-Nightly.wcp"
+        
+        # Only commit if the file has actually changed
+        if git diff --staged --quiet; then
+          echo "No changes to commit."
+        else
+          git commit -m "Update DXVK GPLAsync Nightly [$(date +'%Y-%m-%d')]"
+          git push
+        fi
       uses: actions/upload-artifact@v4
       with:
         name: dxvk-nightly-build
