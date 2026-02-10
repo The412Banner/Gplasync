@@ -1,76 +1,224 @@
-name: Fetch FEXCore Nightly (From Upstream)
+name: x86-fexcore
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
   workflow_dispatch:
+    inputs:
+      channel:
+        type: choice
+        description: "auto=stable+nightly, stable=tag, nightly=HEAD"
+        options: [auto, stable, nightly]
+        default: auto
+      host:
+        type: boolean
+        default: false
+        description: "Self-hosted"
+      version:
+        type: string
+        description: "Stable only: (e.g. 'FEX-2508, FEX-2508.1'). Empty = latest stable"
+
+  schedule:
+    - cron: "0 17 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN:        ${{ github.token }}
+  UNI_KIND:        fexcore
+  REL_TAG_STABLE:  FEXCore
+  REL_TAG_NIGHTLY: FEXCore-Nightly
+  UPSTREAM_REPO:   FEX-Emu/FEX
+
+defaults:
+  run:
+    shell: 'bash --noprofile --norc -Eeuo pipefail {0}'
 
 jobs:
-  fetch-and-package:
-    runs-on: ubuntu-latest
+  guard:
+    name: Build Guard
+    runs-on: ${{ inputs.host == true && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    env:
+      IN_CHANNEL:  ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'stable' }}
+      IN_VERSION:  ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
+      IS_SCHEDULE: ${{ github.event_name == 'schedule' }}
+    outputs:
+      missing: ${{ steps.check.outputs.missing }}
+      matrix:  ${{ steps.matrix.outputs.matrix }}
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check Upstream & Queue
+        id: check
+        run: |
+          if [[ -n "${IN_VERSION:-}" ]]; then
+            IN_VERSION="${IN_VERSION// /,}"
+            export IN_VERSION
+          fi
+
+          bash ./scripts/guard.sh
+
+      - name: Build matrix from queue
+        id: matrix
+        env:
+          ROWS:    ${{ steps.check.outputs.list }}
+          MISSING: ${{ steps.check.outputs.missing }}
+        run: bash ./scripts/guard-matrix.sh
+
+  build:
+    name: Build ${{ format('{0} ({1})', matrix.rel_tag, matrix.ver_name) }}
+    needs: guard
+    if: needs.guard.outputs.missing == 'true'
+    runs-on: ${{ inputs.host == true && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.guard.outputs.matrix) }}
+    env:
+      REF:           ${{ matrix.ref }}
+      FILENAME:      ${{ matrix.filename }}
+      VER_NAME:      ${{ matrix.ver_name }}
+      REL_TAG:       ${{ matrix.rel_tag }}
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Deps
+        run: bash ./scripts/install-deps-ubuntu.sh
+
+      - name: Setup Build Env
+        run: bash ./scripts/setup-llvm.sh
+
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM_REPO }}
+          ref:        ${{ env.REF }}
+          path: src
+          fetch-depth: 1
+
+      - name: Sync & update submodules
+        working-directory: src
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth 1
+
+      - name: Build
+        run: |
+          mkdir -p _logs artifacts
+          LOG_PATH="_logs/${UNI_KIND}-${VER_NAME}-build.log"
+
+          {
+            echo "::group::Building ${REF} (${VER_NAME})"
+
+            rm -rf build pkg stage-ec stage-wo stage-wcp
+            mkdir -p pkg
+
+            cd src
+
+            build_arch() {
+              local triple="$1"
+              local dest="$2"
+              local build_dir="build-${triple}"
+
+              rm -rf "$build_dir"
+              mkdir "$build_dir"
+              cd "$build_dir"
+
+              cmake -GNinja -Wno-dev \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_TOOLCHAIN_FILE=../Data/CMake/toolchain_mingw.cmake \
+                -DCMAKE_INSTALL_LIBDIR=/usr/lib/wine/aarch64-windows \
+                -DENABLE_JEMALLOC_GLIBC_ALLOC=False \
+                -DENABLE_LTO=False \
+                -DENABLE_ASSERTIONS=False \
+                -DMINGW_TRIPLE="${triple}-w64-mingw32" \
+                -DBUILD_TESTING=False \
+                -DCMAKE_INSTALL_PREFIX=/usr ..
+
+              ninja
+              DESTDIR="$dest" ninja install
+              cd ..
+            }
+
+            build_arch "arm64ec" "../../stage-ec"
+            build_arch "aarch64" "../../stage-wo"
+
+            cd ..
+
+            STAGE_MERGE="stage-wcp"
+            WCP_DIR="pkg"
+
+            rm -rf "$STAGE_MERGE"
+            mkdir -p "$STAGE_MERGE"
+
+            for st in stage-ec stage-wo; do
+              if [[ -d "$st" ]]; then
+                echo "Collecting DLLs from $st"
+                find "$st" -type f -name '*.dll' -exec cp {} "$STAGE_MERGE/" \;
+              fi
+            done
+
+            if ! find "$STAGE_MERGE" -maxdepth 1 -type f -name '*.dll' | grep -q .; then
+              echo "::error::No DLLs found in merged stages (checked stage-ec/wo)"
+              exit 1
+            fi
+
+            sample_dll="$(find "$STAGE_MERGE" -maxdepth 1 -type f -name '*.dll' | head -n1)"
+            if [[ -n "$sample_dll" && "$(command -v llvm-readobj || true)" ]]; then
+              if ! llvm-readobj -h "$sample_dll" | grep -qE 'Machine:.*(ARM64|AARCH64)'; then
+                echo "::error::Merged DLL is not ARM64 / AARCH64"
+                exit 1
+              fi
+            fi
+
+            PROFILE_SH="./scripts/profiles/${UNI_KIND}.sh" \
+            bash ./scripts/packing.sh \
+              "$STAGE_MERGE" \
+              "-" \
+              "$WCP_DIR" \
+              "$VER_NAME" \
+              "artifacts/${FILENAME}"
+
+            echo "::endgroup::"
+          } 2>&1 | tee "$LOG_PATH"
+
+      - name: Process Logs
+        if: always()
+        run: bash ./scripts/log.sh _logs/*.log
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.REL_TAG }}-${{ env.VER_NAME }}-logs
+          path: _logs/
+
+      - name: Release
+        env:
+          REPO:           ${{ github.repository }}
+          ARTIFACT_GLOB:  "artifacts/${{ env.FILENAME }}"
+          VERSION_PREFIX: "FEXCore-" ###
+          BODY: |
+            - Architecture: ARM64 host (Wine / MinGW) + 64-bit x86 guest
+        run: bash ./scripts/release.sh
+
+  maintenance:
+    name: Refresh pack.json + README
+    needs: build
+    if: needs.build.result == 'success'
+    uses: ./.github/workflows/chore_purrrser.yml
+    secrets: inherit
     permissions:
       contents: write
-      actions: read
-
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-
-    - name: Find and Download Latest Artifact
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        # 1. Find the latest successful run ID for 'wine_dll_artifacts.yml' on 'main'
-        RUN_ID=$(gh run list --repo FEX-Emu/FEX --workflow wine_dll_artifacts.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
-        echo "Found Run ID: $RUN_ID"
-
-        # 2. List artifacts in this run to find the correct name
-        # We grab the first artifact name found in this run
-        ARTIFACT_NAME=$(gh run view $RUN_ID --repo FEX-Emu/FEX --json artifacts --jq '.artifacts[0].name')
-        
-        if [ -z "$ARTIFACT_NAME" ] || [ "$ARTIFACT_NAME" = "null" ]; then
-          echo "::error::No artifacts found in run $RUN_ID"
-          exit 1
-        fi
-        
-        echo "Found Artifact Name: $ARTIFACT_NAME"
-
-        # 3. Download the artifact using the discovered name
-        gh run download $RUN_ID --repo FEX-Emu/FEX --name "$ARTIFACT_NAME" --dir downloaded_artifacts
-
-    - name: Repackage DLLs
-      run: |
-        mkdir -p packaging/system32
-        
-        # Check what we actually downloaded
-        ls -R downloaded_artifacts/
-        
-        # Copy and RENAME the files (upstream names -> your names)
-        # Note: We use 'find' to be safer in case the folder structure varies inside the zip
-        find downloaded_artifacts -name "libarm64ecfex.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
-        find downloaded_artifacts -name "libwow64fex.dll" -exec cp {} packaging/system32/libwow64fex.dll \;
-
-    - name: Create profile.json
-      run: |
-        BUILD_DATE=$(date +'%Y-%m-%d')
-        VERSION_CODE=${{ github.run_number }}
-        
-        cat <<EOF > packaging/profile.json
-        {
-          "type": "FEXCore",
-          "versionName": "Nightly-${BUILD_DATE}",
-          "versionCode": ${VERSION_CODE},
-          "description": "FEXCore Nightly (Upstream Artifacts)\nDate: ${BUILD_DATE}",
-          "author": "The412Banner",
-          "files": [
-            { "source": "system32/libarm64ec.dll", "target": "\${system32}/libarm64ec.dll" },
-            { "source": "system32/libwow64fex.dll", "target": "\${system32}/libwow64fex.dll" }
-          ]
-        }
-        EOF
-
-    - name: Upload Repackaged Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: fex-nightly-package
-        path: packaging/
