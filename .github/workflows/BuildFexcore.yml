@@ -1,71 +1,34 @@
-name: Build FEXCore Native Nightly
+name: Wine DLL artifacts
 
 on:
-  schedule:
-    - cron: '0 4 * * *'
-  workflow_dispatch:
+  workflow_dispatch: # Allows you to run it manually
 
 jobs:
   build:
-    runs-on: ubuntu-24.04-arm
-    # 1. Increase timeout to 2 hours to ensure it has time to finish
-    timeout-minutes: 120 
-    
+    runs-on: ubuntu-24.04-arm # Use GitHub's native ARM64 runners
     steps:
-    - name: Checkout FEX
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
       with:
-        repository: FEX-Emu/FEX
-        path: fex
+        repository: FEX-Emu/FEX # Build from the source
         submodules: recursive
         fetch-depth: 0
 
-    - name: Install Dependencies
+    - name: Install Build Deps
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build clang llvm lld libssl-dev \
-          python3-setuptools qt6-base-dev qt6-declarative-dev libsdl2-dev
+        sudo apt-get install -y cmake ninja-build clang llvm lld libssl-dev mingw-w64
 
-    - name: Configure and Build
+    - name: Build WOW64 DLL
       run: |
-        mkdir build && cd build
-        # 2. Set -DENABLE_LTO=False to speed up the build significantly
-        CC=clang CXX=clang++ cmake ../fex \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DUSE_LINKER=lld \
-          -DENABLE_LTO=False \
-          -DBUILD_TESTING=False \
-          -G Ninja
-        
-        # 3. Only build the essential tools to save time
-        ninja FEXInterpreter FEXLoader FEXServer FEXConfig
+        mkdir build-wow && cd build-wow
+        cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=Data/CMake/toolchain_mingw.cmake \
+          -DMINGW_TRIPLE=aarch64-w64-mingw32 \
+          -DENABLE_LTO=False
+        ninja
 
-    - name: Prepare Package
-      run: |
-        COMMIT_HASH=$(git -C fex rev-parse --short HEAD)
-        BUILD_DATE=$(date +'%Y-%m-%d')
-
-        mkdir -p packaging/usr/local/bin
-        # Search for the binaries regardless of where Ninja put them
-        find build/Source/Tools -type f -executable \( -name "FEXInterpreter" -o -name "FEXLoader" -o -name "FEXServer" -o -name "FEXConfig" \) -exec cp {} packaging/usr/local/bin/ \;
-
-        cat <<EOF > packaging/profile.json
-        {
-          "type": "FEXCore-Native",
-          "versionName": "fex-native-${COMMIT_HASH}",
-          "versionCode": ${{ github.run_number }},
-          "description": "FEXCore Native Linux ARM64\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
-          "author": "Blank",
-          "files": [
-            { "source": "usr/local/bin/FEXInterpreter", "target": "${bindir}/FEXInterpreter" }
-          ]
-        }
-        EOF
-
-        tar -cJf "fex-native-${COMMIT_HASH}.wcp" -C packaging .
-
-    - name: Upload Artifact
+    - name: Upload
       uses: actions/upload-artifact@v4
       with:
-        name: fex-native-nightly
-        path: "*.wcp"
+        name: fex-wine-dlls
+        path: "**/wowbox64.dll"
