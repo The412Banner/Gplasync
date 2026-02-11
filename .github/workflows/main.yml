@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  # JOB 1: Build the ARM64 Host DLL (Isolated)
+  build-arm64:
     runs-on: ubuntu-latest
     container: mstorsjo/llvm-mingw:latest
-
     steps:
     - name: Install Dependencies
       run: |
@@ -23,12 +23,12 @@ jobs:
         submodules: recursive
         fetch-depth: 0
 
-    - name: Build libarm64ec.dll (Targeting Native AArch64)
+    - name: Build libarm64ec.dll
       run: |
-        mkdir build-arm64ec
-        cd build-arm64ec
+        mkdir build-arm64
+        cd build-arm64
         
-        # 1. Configure for ARM64
+        # FIX: We explicitly set DLLTOOL to aarch64 to prevent x64 import libs from being created
         cmake .. -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_SYSTEM_NAME=Windows \
@@ -37,21 +37,42 @@ jobs:
           -DCMAKE_C_COMPILER=aarch64-w64-mingw32-clang \
           -DCMAKE_CXX_COMPILER=aarch64-w64-mingw32-clang++ \
           -DCMAKE_RC_COMPILER=aarch64-w64-mingw32-windres \
+          -DCMAKE_DLLTOOL=aarch64-w64-mingw32-dlltool \
           -DCMAKE_INSTALL_PREFIX=./install \
           -DENABLE_LTO=False \
           -DBUILD_TESTING=False
-        
-        # 2. Build ONLY the ARM64 target (arm64ecfex)
-        # This prevents it from trying to build the x64 parts and crashing.
-        ninja arm64ecfex
+          
+        ninja
 
-    - name: Build libwow64fex.dll (WOW64 - Targeting x86_64)
+    - name: Upload ARM64 Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: libarm64ec
+        # Find the DLL regardless of output name and upload it
+        path: build-arm64/**/*.dll
+
+  # JOB 2: Build the WOW64 Guest DLL (Isolated)
+  build-wow64:
+    runs-on: ubuntu-latest
+    container: mstorsjo/llvm-mingw:latest
+    steps:
+    - name: Install Dependencies
+      run: |
+        apt-get update -y
+        apt-get install -y git python3 python3-packaging python3-setuptools
+
+    - name: Checkout FEX
+      uses: actions/checkout@v4
+      with:
+        repository: FEX-Emu/FEX
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Build libwow64fex.dll
       run: |
         mkdir build-wow64
         cd build-wow64
         
-        # 3. Configure for x86_64 (Intel 64-bit)
-        # The WOW64 bridge must be compiled as x64 to load into the emulator process.
         cmake .. -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_SYSTEM_NAME=Windows \
@@ -60,35 +81,59 @@ jobs:
           -DCMAKE_C_COMPILER=x86_64-w64-mingw32-clang \
           -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-clang++ \
           -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
+          -DCMAKE_DLLTOOL=x86_64-w64-mingw32-dlltool \
           -DCMAKE_INSTALL_PREFIX=./install \
           -DENABLE_LTO=False \
           -DBUILD_TESTING=False
           
-        # 4. Build ONLY the WOW64 target
-        ninja wow64fex
+        ninja
 
-    - name: Prepare Package
+    - name: Upload WOW64 Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: libwow64
+        path: build-wow64/**/*.dll
+
+  # JOB 3: Package them together
+  package:
+    runs-on: ubuntu-latest
+    needs: [build-arm64, build-wow64]
+    steps:
+    - name: Download ARM64 Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: libarm64ec
+        path: packaging/system32
+
+    - name: Download WOW64 Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: libwow64
+        path: packaging/system32
+
+    - name: Rename and Bundle
       run: |
-        git config --global --add safe.directory '*'
-        COMMIT_HASH=$(git rev-parse --short HEAD)
+        cd packaging/system32
+        
+        # Rename the ARM64 file to what Winlator expects (libarm64ec.dll)
+        # We find whatever file is there (likely libFEXCore.dll or libarm64ecfex.dll) and rename it
+        find . -name "*.dll" -not -name "libwow64fex.dll" -exec mv {} libarm64ec.dll \;
+        
+        # Ensure WOW64 is named correctly
+        find . -name "*wow64*.dll" -exec mv {} libwow64fex.dll \;
+        
+        ls -R
+        
+        cd ..
+        
+        # Create profile.json
         BUILD_DATE=$(date +'%Y-%m-%d')
-        
-        mkdir -p packaging/system32
-        
-        echo "Collecting artifacts..."
-        
-        # Copy the ARM64 DLL (renaming target arm64ecfex output to libarm64ec.dll)
-        find build-arm64ec -name "libarm64ecfex.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
-        
-        # Copy the WOW64 DLL
-        find build-wow64 -name "libwow64fex.dll" -exec cp {} packaging/system32/libwow64fex.dll \;
-        
-        cat <<EOF > packaging/profile.json
+        cat <<EOF > profile.json
         {
           "type": "FEXCore",
-          "versionName": "Nightly-${COMMIT_HASH}",
-          "versionCode": ${{ github.run_number }},
-          "description": "FEXCore Nightly (Split Arch Build)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
+          "versionName": "Nightly-${BUILD_DATE}",
+          "versionCode": 1,
+          "description": "FEXCore Nightly (Split Build)\nDate: ${BUILD_DATE}",
           "author": "Blank",
           "files": [
             { "source": "system32/libarm64ec.dll", "target": "\${system32}/libarm64ec.dll" },
@@ -97,15 +142,12 @@ jobs:
         }
         EOF
 
-    - name: Create WCP Package
+    - name: Create WCP
       run: |
-        git config --global --add safe.directory '*'
-        COMMIT_HASH=$(git rev-parse --short HEAD)
-        tar -cJf FEXCore-Nightly-${COMMIT_HASH}.wcp -C packaging .
+        tar -cJf FEXCore-Nightly.wcp -C packaging .
 
-    - name: Upload Artifacts
+    - name: Upload Final Package
       uses: actions/upload-artifact@v4
       with:
-        name: fexcore-nightly-build
-        path: |
-          *.wcp
+        name: fexcore-nightly-package
+        path: FEXCore-Nightly.wcp
