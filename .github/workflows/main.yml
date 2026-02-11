@@ -28,21 +28,16 @@ jobs:
         mkdir build-arm64ec
         cd build-arm64ec
         
-        # FIX 1: Force define _M_ARM64 so Windows headers give us the correct struct
+        # FIX: Use specific cross-compiler binaries (aarch64-w64-mingw32-clang)
+        # instead of generic clang. This guarantees correct headers and macros.
         cmake .. -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_SIZEOF_VOID_P=8 \
-          -DCMAKE_C_COMPILER=clang \
-          -DCMAKE_CXX_COMPILER=clang++ \
-          -DCMAKE_ASM_COMPILER=clang \
-          -DCMAKE_C_COMPILER_TARGET="aarch64-w64-mingw32" \
-          -DCMAKE_CXX_COMPILER_TARGET="aarch64-w64-mingw32" \
-          -DCMAKE_ASM_COMPILER_TARGET="aarch64-w64-mingw32" \
-          -DCMAKE_C_FLAGS="-fuse-ld=lld -D_M_ARM64=1" \
-          -DCMAKE_CXX_FLAGS="-fuse-ld=lld -D_M_ARM64=1" \
-          -DCMAKE_ASM_FLAGS="-target aarch64-w64-mingw32" \
+          -DCMAKE_C_COMPILER=aarch64-w64-mingw32-clang \
+          -DCMAKE_CXX_COMPILER=aarch64-w64-mingw32-clang++ \
+          -DCMAKE_RC_COMPILER=aarch64-w64-mingw32-windres \
           -DCMAKE_INSTALL_PREFIX=./install \
           -DENABLE_LTO=False \
           -DBUILD_TESTING=False
@@ -54,21 +49,15 @@ jobs:
         mkdir build-wow64
         cd build-wow64
         
-        # Added defines here too for consistency
+        # Use specific cross-compiler binaries here too
         cmake .. -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
           -DCMAKE_SIZEOF_VOID_P=8 \
-          -DCMAKE_C_COMPILER=clang \
-          -DCMAKE_CXX_COMPILER=clang++ \
-          -DCMAKE_ASM_COMPILER=clang \
-          -DCMAKE_C_COMPILER_TARGET="aarch64-w64-mingw32" \
-          -DCMAKE_CXX_COMPILER_TARGET="aarch64-w64-mingw32" \
-          -DCMAKE_ASM_COMPILER_TARGET="aarch64-w64-mingw32" \
-          -DCMAKE_C_FLAGS="-fuse-ld=lld -D_M_ARM64=1" \
-          -DCMAKE_CXX_FLAGS="-fuse-ld=lld -D_M_ARM64=1" \
-          -DCMAKE_ASM_FLAGS="-target aarch64-w64-mingw32" \
+          -DCMAKE_C_COMPILER=aarch64-w64-mingw32-clang \
+          -DCMAKE_CXX_COMPILER=aarch64-w64-mingw32-clang++ \
+          -DCMAKE_RC_COMPILER=aarch64-w64-mingw32-windres \
           -DCMAKE_INSTALL_PREFIX=./install \
           -DENABLE_LTO=False \
           -DBUILD_TESTING=False
@@ -83,34 +72,29 @@ jobs:
         
         mkdir -p packaging/system32
         
-        # FIX 2: Smart file finding.
-        # Native AArch64 builds usually output "libFEXCore.dll", not "libarm64ecfex.dll".
-        # We find whatever dll was built and rename it to libarm64ec.dll for Winlator compatibility.
-        
         echo "Searching for built DLLs..."
-        find build-arm64ec -name "*.dll"
         
+        # Smart Search: Find the compiled DLLs regardless of output name
+        # We rename the main FEXCore DLL to libarm64ec.dll for Winlator
         if [ -f "build-arm64ec/Bin/libFEXCore.dll" ]; then
             echo "Found libFEXCore.dll, renaming..."
             cp build-arm64ec/Bin/libFEXCore.dll packaging/system32/libarm64ec.dll
         elif [ -f "build-arm64ec/libarm64ecfex.dll" ]; then
-            echo "Found libarm64ecfex.dll..."
-            cp build-arm64ec/libarm64ecfex.dll packaging/system32/libarm64ec.dll
+             cp build-arm64ec/libarm64ecfex.dll packaging/system32/libarm64ec.dll
         else
-            echo "Using fallback search..."
-            # Find the largest DLL in the build dir, assuming it's the core library
+            # Fallback: grab the largest DLL in the build folder
             find build-arm64ec -name "*.dll" -type f -exec ls -s {} + | sort -n -r | head -1 | awk '{print $2}' | xargs -I {} cp {} packaging/system32/libarm64ec.dll
         fi
 
-        # Copy WOW64 DLL
-        find build-wow64 -name "*.dll" -exec cp {} packaging/system32/libwow64fex.dll \;
+        # Find and copy the WOW64 DLL
+        find build-wow64 -name "libwow64fex.dll" -exec cp {} packaging/system32/libwow64fex.dll \;
         
         cat <<EOF > packaging/profile.json
         {
           "type": "FEXCore",
           "versionName": "Nightly-${COMMIT_HASH}",
           "versionCode": ${{ github.run_number }},
-          "description": "FEXCore Nightly (Native AArch64 Fixed)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
+          "description": "FEXCore Nightly (Native AArch64)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
           "author": "Blank",
           "files": [
             { "source": "system32/libarm64ec.dll", "target": "\${system32}/libarm64ec.dll" },
