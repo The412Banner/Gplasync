@@ -1,0 +1,117 @@
+name: Build FEXCore Nightly (Winlator)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: mstorsjo/llvm-mingw:latest
+
+    steps:
+    - name: Install Dependencies
+      run: |
+        apt-get update -y
+        apt-get install -y git python3 python3-packaging python3-setuptools
+
+    - name: Checkout FEX
+      uses: actions/checkout@v4
+      with:
+        repository: FEX-Emu/FEX
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Build libarm64ec.dll (Targeting Native AArch64)
+      run: |
+        mkdir build-arm64ec
+        cd build-arm64ec
+        
+        # FIX: Switched target from "arm64ec" to "aarch64" to match source code expectations
+        cmake .. -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+          -DCMAKE_SIZEOF_VOID_P=8 \
+          -DCMAKE_C_COMPILER=clang \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_ASM_COMPILER=clang \
+          -DCMAKE_C_COMPILER_TARGET="aarch64-w64-mingw32" \
+          -DCMAKE_CXX_COMPILER_TARGET="aarch64-w64-mingw32" \
+          -DCMAKE_ASM_COMPILER_TARGET="aarch64-w64-mingw32" \
+          -DCMAKE_C_FLAGS="-fuse-ld=lld" \
+          -DCMAKE_CXX_FLAGS="-fuse-ld=lld" \
+          -DCMAKE_ASM_FLAGS="-target aarch64-w64-mingw32" \
+          -DCMAKE_INSTALL_PREFIX=./install \
+          -DENABLE_LTO=False \
+          -DBUILD_TESTING=False
+          
+        ninja
+
+    - name: Build libwow64fex.dll (WOW64)
+      run: |
+        mkdir build-wow64
+        cd build-wow64
+        
+        cmake .. -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+          -DCMAKE_SIZEOF_VOID_P=8 \
+          -DCMAKE_C_COMPILER=clang \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_ASM_COMPILER=clang \
+          -DCMAKE_C_COMPILER_TARGET="aarch64-w64-mingw32" \
+          -DCMAKE_CXX_COMPILER_TARGET="aarch64-w64-mingw32" \
+          -DCMAKE_ASM_COMPILER_TARGET="aarch64-w64-mingw32" \
+          -DCMAKE_C_FLAGS="-fuse-ld=lld" \
+          -DCMAKE_CXX_FLAGS="-fuse-ld=lld" \
+          -DCMAKE_ASM_FLAGS="-target aarch64-w64-mingw32" \
+          -DCMAKE_INSTALL_PREFIX=./install \
+          -DENABLE_LTO=False \
+          -DBUILD_TESTING=False
+          
+        ninja
+
+    - name: Prepare Package
+      run: |
+        git config --global --add safe.directory '*'
+        COMMIT_HASH=$(git rev-parse --short HEAD)
+        BUILD_DATE=$(date +'%Y-%m-%d')
+        
+        mkdir -p packaging/system32
+        
+        # Note: We are packaging the aarch64 build as libarm64ec.dll
+        find build-arm64ec -name "libarm64ecfex.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
+        # Fallback if the build output name differs (standard FEX build might name it libFEXCore.dll)
+        find build-arm64ec/Bin -name "libFEXCore.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
+        
+        find build-wow64 -name "libwow64fex.dll" -exec cp {} packaging/system32/libwow64fex.dll \;
+        
+        cat <<EOF > packaging/profile.json
+        {
+          "type": "FEXCore",
+          "versionName": "Nightly-${COMMIT_HASH}",
+          "versionCode": ${{ github.run_number }},
+          "description": "FEXCore Nightly (Native AArch64)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
+          "author": "Blank",
+          "files": [
+            { "source": "system32/libarm64ec.dll", "target": "\${system32}/libarm64ec.dll" },
+            { "source": "system32/libwow64fex.dll", "target": "\${system32}/libwow64fex.dll" }
+          ]
+        }
+        EOF
+
+    - name: Create WCP Package
+      run: |
+        git config --global --add safe.directory '*'
+        COMMIT_HASH=$(git rev-parse --short HEAD)
+        tar -cJf FEXCore-Nightly-${COMMIT_HASH}.wcp -C packaging .
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: fexcore-nightly-build
+        path: |
+          *.wcp
