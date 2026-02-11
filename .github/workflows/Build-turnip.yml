@@ -1,103 +1,88 @@
-name: Build Turnip+Zink for Winlator (GitLab Source)
+name: Build Turnip Nightly
 
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: "0 6 * * 2,5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: turnip-dev
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: 'bash --noprofile --norc -Eeuo pipefail {0}'
+
 jobs:
-  build-winlator-driver:
+  turnip-dev:
+    name: GBR
     runs-on: ubuntu-latest
-    container:
-      image: ubuntu:22.04
+
+    env:
+      NDK_VERSION: android-ndk-r29
+      SDK_VERSION: "31"
+      TURNIP_RELEASE_TAG: TU-DEV
 
     steps:
-      - name: Install Dependencies
-        run: |
-          apt-get update
-          apt-get install -y git python3 python3-pip meson ninja-build \
-          bison flex libelf-dev pkg-config wget unzip zip
-
-      - name: Setup Android NDK
-        run: |
-          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
-          unzip -q android-ndk-r26b-linux.zip
-          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
-          echo "PATH=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH" >> $GITHUB_ENV
-
-      # --- CRITICAL FIX: MANUAL CLONE FROM GITLAB ---
-      - name: Clone Mesa from GitLab
-        run: |
-          # We use git clone directly to bypass GitHub permission errors
-          git clone --depth 1 --branch main https://gitlab.freedesktop.org/mesa/mesa.git mesa
-
-      - name: Create Meson Cross File
-        run: |
-          cat <<EOF > android-aarch64
-          [binaries]
-          c = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang'
-          cpp = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++'
-          ar = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
-          strip = '$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
-          pkgconfig = '/usr/bin/pkg-config'
-          
-          [host_machine]
-          system = 'android'
-          cpu_family = 'aarch64'
-          cpu = 'armv8-a'
-          endian = 'little'
-          EOF
-
-      - name: Configure Build (Turnip + Zink)
-        working-directory: mesa
-        run: |
-          pip3 install mako
-          
-          # Configure Meson for Turnip (Vulkan) and Zink (OpenGL)
-          meson setup build-android \
-            --cross-file ../android-aarch64 \
-            -Dbuildtype=release \
-            -Dplatforms=android \
-            -Dplatform-sdk-version=29 \
-            -Dandroid-stub=true \
-            -Dgallium-drivers=zink \
-            -Dvulkan-drivers=freedreno \
-            -Dfreedreno-kmds=kgsl \
-            -Dllvm=disabled \
-            -Dglx=disabled \
-            -Degl=disabled \
-            -Dgbm=disabled \
-            -Dglvnd=false
-
-      - name: Compile
-        working-directory: mesa
-        run: ninja -C build-android
-
-      - name: Package for Winlator
-        working-directory: mesa/build-android
-        run: |
-          mkdir -p WinlatorPackage
-          
-          # 1. Copy the Vulkan Driver (Turnip)
-          cp src/freedreno/vulkan/libvulkan_freedreno.so WinlatorPackage/
-          
-          # 2. Copy the OpenGL Driver (Zink)
-          # Note: Winlator often looks for 'libgallium_dri.so'
-          cp src/gallium/targets/dri/libgallium_dri.so WinlatorPackage/
-
-          # 3. Create meta.json
-          echo '{
-            "name": "Turnip (GitLab Upstream)",
-            "version": "Mesa-Main",
-            "description": "Adreno 7xx Turnip + Zink built from GitLab",
-            "author": "The412Banner",
-            "api_version": 1
-          }' > WinlatorPackage/meta.json
-
-          # 4. Zip it up
-          cd WinlatorPackage
-          zip -r ../Turnip-Winlator-Driver.zip .
-
-      - name: Upload Driver
-        uses: actions/upload-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          name: Winlator-Turnip-Driver
-          path: mesa/build-android/Turnip-Winlator-Driver.zip
+          fetch-depth: 1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -yq
+          sudo apt-get install -yq --no-install-recommends \
+            git curl unzip zip python3 python3-venv ninja-build \
+            patchelf gh glslang-tools bison flex
+
+      - name: Guard - resolve Mesa baseline from Mesa CI (a750-vk only)
+        id: guard
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+
+        run: |
+          python3 scripts/tu/guard.py
+
+      - name: Skip notice
+        if: steps.guard.outputs.FOUND != 'true'
+        run: echo "::notice::Baseline not found. Skipping build."
+
+      - name: Build Turnip dev + package artifact
+        id: build
+        if: steps.guard.outputs.FOUND == 'true'
+        env:
+          NDK_VERSION: ${{ env.NDK_VERSION }}
+          SDK_VERSION: ${{ env.SDK_VERSION }}
+          MESA_BASELINE_SHA: ${{ steps.guard.outputs.MESA_BASELINE_SHA }}
+
+        run: |
+          bash scripts/tu/build.sh
+
+      - name: Publish to TU-DEV release (asset only)
+        if: steps.guard.outputs.FOUND == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ env.TURNIP_RELEASE_TAG }}
+          ARTIFACT_PATH: ${{ steps.build.outputs.ARTIFACT_PATH }}
+        run: |
+          set -Eeuo pipefail
+
+          [[ -n "${ARTIFACT_PATH}" ]] || { echo "::error::ARTIFACT_PATH is empty"; exit 1; }
+          [[ -f "${ARTIFACT_PATH}" ]] || { echo "::error::Missing artifact: ${ARTIFACT_PATH}"; exit 1; }
+
+          if ! gh release view "${TAG}" --repo "${REPO}" >/dev/null 2>&1; then
+            gh release create "${TAG}" \
+              --repo "${REPO}" \
+              -t "Turnip Dev" \
+              -n ""
+          fi
+
+          gh release upload "${TAG}" "${ARTIFACT_PATH}" \
+            --repo "${REPO}" \
+            --clobber
