@@ -28,8 +28,7 @@ jobs:
         mkdir build-arm64ec
         cd build-arm64ec
         
-        # FIX: Use specific cross-compiler binaries (aarch64-w64-mingw32-clang)
-        # instead of generic clang. This guarantees correct headers and macros.
+        # 1. Configure for ARM64
         cmake .. -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_SYSTEM_NAME=Windows \
@@ -41,28 +40,32 @@ jobs:
           -DCMAKE_INSTALL_PREFIX=./install \
           -DENABLE_LTO=False \
           -DBUILD_TESTING=False
-          
-        ninja
+        
+        # 2. Build ONLY the ARM64 target (arm64ecfex)
+        # This prevents it from trying to build the x64 parts and crashing.
+        ninja arm64ecfex
 
-    - name: Build libwow64fex.dll (WOW64)
+    - name: Build libwow64fex.dll (WOW64 - Targeting x86_64)
       run: |
         mkdir build-wow64
         cd build-wow64
         
-        # Use specific cross-compiler binaries here too
+        # 3. Configure for x86_64 (Intel 64-bit)
+        # The WOW64 bridge must be compiled as x64 to load into the emulator process.
         cmake .. -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_SYSTEM_NAME=Windows \
-          -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+          -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
           -DCMAKE_SIZEOF_VOID_P=8 \
-          -DCMAKE_C_COMPILER=aarch64-w64-mingw32-clang \
-          -DCMAKE_CXX_COMPILER=aarch64-w64-mingw32-clang++ \
-          -DCMAKE_RC_COMPILER=aarch64-w64-mingw32-windres \
+          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-clang \
+          -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-clang++ \
+          -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
           -DCMAKE_INSTALL_PREFIX=./install \
           -DENABLE_LTO=False \
           -DBUILD_TESTING=False
           
-        ninja
+        # 4. Build ONLY the WOW64 target
+        ninja wow64fex
 
     - name: Prepare Package
       run: |
@@ -72,21 +75,12 @@ jobs:
         
         mkdir -p packaging/system32
         
-        echo "Searching for built DLLs..."
+        echo "Collecting artifacts..."
         
-        # Smart Search: Find the compiled DLLs regardless of output name
-        # We rename the main FEXCore DLL to libarm64ec.dll for Winlator
-        if [ -f "build-arm64ec/Bin/libFEXCore.dll" ]; then
-            echo "Found libFEXCore.dll, renaming..."
-            cp build-arm64ec/Bin/libFEXCore.dll packaging/system32/libarm64ec.dll
-        elif [ -f "build-arm64ec/libarm64ecfex.dll" ]; then
-             cp build-arm64ec/libarm64ecfex.dll packaging/system32/libarm64ec.dll
-        else
-            # Fallback: grab the largest DLL in the build folder
-            find build-arm64ec -name "*.dll" -type f -exec ls -s {} + | sort -n -r | head -1 | awk '{print $2}' | xargs -I {} cp {} packaging/system32/libarm64ec.dll
-        fi
-
-        # Find and copy the WOW64 DLL
+        # Copy the ARM64 DLL (renaming target arm64ecfex output to libarm64ec.dll)
+        find build-arm64ec -name "libarm64ecfex.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
+        
+        # Copy the WOW64 DLL
         find build-wow64 -name "libwow64fex.dll" -exec cp {} packaging/system32/libwow64fex.dll \;
         
         cat <<EOF > packaging/profile.json
@@ -94,7 +88,7 @@ jobs:
           "type": "FEXCore",
           "versionName": "Nightly-${COMMIT_HASH}",
           "versionCode": ${{ github.run_number }},
-          "description": "FEXCore Nightly (Native AArch64)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
+          "description": "FEXCore Nightly (Split Arch Build)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
           "author": "Blank",
           "files": [
             { "source": "system32/libarm64ec.dll", "target": "\${system32}/libarm64ec.dll" },
