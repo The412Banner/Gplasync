@@ -23,12 +23,12 @@ jobs:
           echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
           echo "PATH=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH" >> $GITHUB_ENV
 
-      - name: Checkout Mesa
-        uses: actions/checkout@v4
-        with:
-          repository: mesa3d/mesa
-          ref: main 
-          path: mesa
+      # --- FIXED SECTION START ---
+      - name: Checkout Mesa (Manual)
+        run: |
+          # We use manual git clone to avoid token permission errors
+          git clone --depth 1 --branch main https://github.com/mesa3d/mesa.git mesa
+      # --- FIXED SECTION END ---
 
       - name: Create Meson Cross File
         run: |
@@ -52,8 +52,6 @@ jobs:
         run: |
           pip3 install mako
           
-          # We enable 'freedreno' (Turnip) for Vulkan
-          # We enable 'zink' for Gallium (OpenGL)
           meson setup build-android \
             --cross-file ../android-aarch64 \
             -Dbuildtype=release \
@@ -82,16 +80,15 @@ jobs:
           cp src/freedreno/vulkan/libvulkan_freedreno.so WinlatorPackage/
           
           # 2. Copy the OpenGL Driver (Zink)
-          # Note: Some Winlator versions look for 'libgallium_dri.so'
+          # Note: Winlator often looks for 'libgallium_dri.so'
           cp src/gallium/targets/dri/libgallium_dri.so WinlatorPackage/
 
-          # 3. Create meta.json (Required for Import)
-          # You can customize the name/description
+          # 3. Create meta.json
           echo '{
             "name": "Turnip (Custom CI)",
             "version": "Mesa-Main",
             "description": "Adreno 7xx Turnip + Zink built via GitHub Actions",
-            "author": "Self",
+            "author": "The412Banner",
             "api_version": 1
           }' > WinlatorPackage/meta.json
 
