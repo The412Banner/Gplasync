@@ -28,7 +28,7 @@ jobs:
         mkdir build-arm64ec
         cd build-arm64ec
         
-        # FIX: Switched target from "arm64ec" to "aarch64" to match source code expectations
+        # FIX: Added -D_M_ARM64=1 to force MinGW headers to use the correct CONTEXT struct
         cmake .. -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_SYSTEM_NAME=Windows \
@@ -40,8 +40,8 @@ jobs:
           -DCMAKE_C_COMPILER_TARGET="aarch64-w64-mingw32" \
           -DCMAKE_CXX_COMPILER_TARGET="aarch64-w64-mingw32" \
           -DCMAKE_ASM_COMPILER_TARGET="aarch64-w64-mingw32" \
-          -DCMAKE_C_FLAGS="-fuse-ld=lld" \
-          -DCMAKE_CXX_FLAGS="-fuse-ld=lld" \
+          -DCMAKE_C_FLAGS="-fuse-ld=lld -D_M_ARM64=1 -D__aarch64__=1" \
+          -DCMAKE_CXX_FLAGS="-fuse-ld=lld -D_M_ARM64=1 -D__aarch64__=1" \
           -DCMAKE_ASM_FLAGS="-target aarch64-w64-mingw32" \
           -DCMAKE_INSTALL_PREFIX=./install \
           -DENABLE_LTO=False \
@@ -54,6 +54,7 @@ jobs:
         mkdir build-wow64
         cd build-wow64
         
+        # Added defines here too for consistency
         cmake .. -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_SYSTEM_NAME=Windows \
@@ -65,8 +66,8 @@ jobs:
           -DCMAKE_C_COMPILER_TARGET="aarch64-w64-mingw32" \
           -DCMAKE_CXX_COMPILER_TARGET="aarch64-w64-mingw32" \
           -DCMAKE_ASM_COMPILER_TARGET="aarch64-w64-mingw32" \
-          -DCMAKE_C_FLAGS="-fuse-ld=lld" \
-          -DCMAKE_CXX_FLAGS="-fuse-ld=lld" \
+          -DCMAKE_C_FLAGS="-fuse-ld=lld -D_M_ARM64=1" \
+          -DCMAKE_CXX_FLAGS="-fuse-ld=lld -D_M_ARM64=1" \
           -DCMAKE_ASM_FLAGS="-target aarch64-w64-mingw32" \
           -DCMAKE_INSTALL_PREFIX=./install \
           -DENABLE_LTO=False \
@@ -82,11 +83,17 @@ jobs:
         
         mkdir -p packaging/system32
         
-        # Note: We are packaging the aarch64 build as libarm64ec.dll
-        find build-arm64ec -name "libarm64ecfex.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
-        # Fallback if the build output name differs (standard FEX build might name it libFEXCore.dll)
-        find build-arm64ec/Bin -name "libFEXCore.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
-        
+        # Attempt to copy the DLL. 
+        # Standard build might produce "libFEXCore.dll", but we rename it to "libarm64ec.dll" for Winlator.
+        if [ -f "build-arm64ec/Bin/libFEXCore.dll" ]; then
+          cp build-arm64ec/Bin/libFEXCore.dll packaging/system32/libarm64ec.dll
+        elif [ -f "build-arm64ec/libarm64ecfex.dll" ]; then
+          find build-arm64ec -name "libarm64ecfex.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
+        else
+           # Fallback search
+           find build-arm64ec -name "*.dll" -exec cp {} packaging/system32/libarm64ec.dll \;
+        fi
+
         find build-wow64 -name "libwow64fex.dll" -exec cp {} packaging/system32/libwow64fex.dll \;
         
         cat <<EOF > packaging/profile.json
@@ -94,7 +101,7 @@ jobs:
           "type": "FEXCore",
           "versionName": "Nightly-${COMMIT_HASH}",
           "versionCode": ${{ github.run_number }},
-          "description": "FEXCore Nightly (Native AArch64)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
+          "description": "FEXCore Nightly (Native AArch64 Fixed)\nCommit: ${COMMIT_HASH}\nDate: ${BUILD_DATE}",
           "author": "Blank",
           "files": [
             { "source": "system32/libarm64ec.dll", "target": "\${system32}/libarm64ec.dll" },
