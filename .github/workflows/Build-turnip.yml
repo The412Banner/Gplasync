@@ -1,4 +1,4 @@
-name: Build Turnip+Zink for Winlator
+name: Build Turnip+Zink for Winlator (GitLab Source)
 
 on:
   workflow_dispatch:
@@ -23,12 +23,12 @@ jobs:
           echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
           echo "PATH=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH" >> $GITHUB_ENV
 
-      # --- FIXED SECTION START ---
-      - name: Checkout Mesa (Manual)
+      # --- CHANGED: Clone from GitLab Upstream ---
+      - name: Clone Mesa from GitLab
         run: |
-          # We use manual git clone to avoid token permission errors
-          git clone --depth 1 --branch main https://github.com/mesa3d/mesa.git mesa
-      # --- FIXED SECTION END ---
+          # Cloning directly from Freedesktop GitLab
+          # --depth 1 saves time by not downloading the full history
+          git clone --depth 1 --branch main https://gitlab.freedesktop.org/mesa/mesa.git mesa
 
       - name: Create Meson Cross File
         run: |
@@ -85,9 +85,9 @@ jobs:
 
           # 3. Create meta.json
           echo '{
-            "name": "Turnip (Custom CI)",
+            "name": "Turnip (GitLab Upstream)",
             "version": "Mesa-Main",
-            "description": "Adreno 7xx Turnip + Zink built via GitHub Actions",
+            "description": "Adreno 7xx Turnip + Zink built from Freedesktop.org",
             "author": "The412Banner",
             "api_version": 1
           }' > WinlatorPackage/meta.json
