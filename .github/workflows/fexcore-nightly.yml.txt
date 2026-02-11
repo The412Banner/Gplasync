@@ -1,0 +1,138 @@
+name: Build Winlator FEXCore WCP
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+env:
+  LLVM_MINGW_URL: https://github.com/mstorsjo/llvm-mingw/releases/download/20251216/llvm-mingw-20251216-ucrt-ubuntu-22.04-x86_64.tar.xz
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: FEX-Emu/FEX
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake curl xz-utils git
+
+      - name: Install llvm-mingw
+        run: |
+          curl -L $LLVM_MINGW_URL -o llvm-mingw.tar.xz
+          mkdir -p llvm-mingw
+          tar -xf llvm-mingw.tar.xz -C llvm-mingw --strip-components=1
+          echo "$GITHUB_WORKSPACE/llvm-mingw/bin" >> $GITHUB_PATH
+
+      - name: Apply fixes
+        run: |
+          # Make DLLEXPORT_FUNC symbols visible by default
+          sed -i 's/Ret Name Args;/ __attribute__((visibility("default"))) Ret Name Args;/g' Source/Windows/Common/Priv.h
+          sed -i 's/Ret(\*__imp_##Name) Args = Name;/ __attribute__((visibility("default"))) Ret(*__imp_##Name) Args = Name;/g' Source/Windows/Common/Priv.h
+          sed -i 's/Ret(\*__imp_aux_##Name) Args = Name;/ __attribute__((visibility("default"))) Ret(*__imp_aux_##Name) Args = Name;/g' Source/Windows/Common/Priv.h
+
+          # Fix _assert and BTCpuSimulateImpl in WOW64
+          sed -i '/__attribute__((visibility("default"))) extern "C" void BTCpuSimulateImpl/! s/extern "C" void BTCpuSimulateImpl/__attribute__((visibility("default"))) extern "C" void BTCpuSimulateImpl/g' Source/Windows/WOW64/Module.cpp
+          
+          # Add plain _assert to WOW64/Module.cpp (Fixed newline injection)
+          sed -i '/__attribute__((visibility("default"))) extern "C" void BTCpuSimulateImpl/i extern "C" void _assert(const char* msg, const char* file, unsigned line) { BTCpuProcessTerm(NULL, FALSE, 0); }' Source/Windows/WOW64/Module.cpp
+          
+          # Rename _assert in Misc.cpp
+          sed -i 's/DLLEXPORT_FUNC(void, _assert,/DLLEXPORT_FUNC(void, _assert_unused,/g' Source/Windows/Common/CRT/Misc.cpp
+
+          # Fix _assert in ARM64EC
+          sed -i '/struct ThreadCPUArea {/i extern "C" void _assert(const char* msg, const char* file, unsigned line) { ProcessTerm(NULL, FALSE, 0); }' Source/Windows/ARM64EC/Module.cpp
+
+          # Add missing symbols to libwow64fex.def
+          sed -i '/__wine_get_unix_opcode/a BTCpuSimulateImpl\n_assert\nFlushInstructionCache' Source/Windows/WOW64/libwow64fex.def
+
+      - name: Build WOW64
+        run: |
+          mkdir build_wow64
+          cmake -S . -B build_wow64 -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=Data/CMake/toolchain_mingw.cmake \
+            -DMINGW_TRIPLE=aarch64-w64-mingw32 \
+            -DCMAKE_INSTALL_LIBDIR=/usr/lib/wine/aarch64-windows \
+            -G Ninja \
+            -DENABLE_LTO=False \
+            -DENABLE_ASSERTIONS=False \
+            -DENABLE_JEMALLOC_GLIBC_ALLOC=False \
+            -DBUILD_TESTING=False \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DTUNE_ARCH=generic -DTUNE_CPU=none
+          cmake --build build_wow64
+
+      - name: Build ARM64EC
+        run: |
+          mkdir build_arm64ec
+          cmake -S . -B build_arm64ec -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=Data/CMake/toolchain_mingw.cmake \
+            -DMINGW_TRIPLE=arm64ec-w64-mingw32 \
+            -DCMAKE_INSTALL_LIBDIR=/usr/lib/wine/aarch64-windows \
+            -G Ninja \
+            -DENABLE_LTO=False \
+            -DENABLE_ASSERTIONS=False \
+            -DENABLE_JEMALLOC_GLIBC_ALLOC=False \
+            -DBUILD_TESTING=False \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DTUNE_ARCH=generic -DTUNE_CPU=none
+          cmake --build build_arm64ec
+
+      - name: Get Version and Hash
+        id: vars
+        run: |
+          VERSION=$(git describe --abbrev=0 --tags 2>/dev/null | sed 's/FEX-//' || echo "nightly")
+          HASH=$(git rev-parse --short=7 HEAD)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "hash=${HASH}" >> $GITHUB_OUTPUT
+          echo "filename=fexcore-${VERSION}-${HASH}.wcp" >> $GITHUB_OUTPUT
+
+      - name: Package WCP
+        run: |
+          mkdir -p package/system32
+          cp build_wow64/Bin/libwow64fex.dll package/system32/
+          cp build_arm64ec/Bin/libarm64ecfex.dll package/system32/
+          
+          # Using environment variables to avoid JSON expansion issues
+          VERSION_NAME="${{ steps.vars.outputs.version }}-${{ steps.vars.outputs.hash }}"
+          
+          cat <<EOF > package/profile.json
+          {
+            "type": "FEXCore",
+            "versionName": "$VERSION_NAME",
+            "versionCode": 0,
+            "description": "FEXCore Nightly Release",
+            "author": "MaxsTechReview",
+            "files": [
+              {
+                "source": "system32/libarm64ecfex.dll",
+                "target": "\${system32}/libarm64ecfex.dll"
+              },
+              {
+                "source": "system32/libwow64fex.dll",
+                "target": "\${system32}/libwow64fex.dll"
+              }
+            ]
+          }
+          EOF
+          cd package
+          tar -cJf ../${{ steps.vars.outputs.filename }} ./profile.json ./system32/
+
+      - name: Generate Changelog
+        run: |
+          git log --since="24 hours ago" --pretty=format:"%h - %s (%an)" > changelog.txt || echo "No recent changes" > changelog.txt
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fexcore-wcp
+          path: |
+            *.wcp
+            changelog.txt
