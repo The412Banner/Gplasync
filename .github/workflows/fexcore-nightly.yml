@@ -29,13 +29,14 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/ndk
           curl -L https://dl.google.com/android/repository/android-ndk-r26b-linux.zip -o ndk.zip
           unzip -q ndk.zip -d $GITHUB_WORKSPACE/ndk
-          # This line "hunts" for the folder name so the path is never wrong
-          REAL_NDK_PATH=$(find $GITHUB_WORKSPACE/ndk -maxdepth 1 -type d -name "android-ndk-*" | head -n 1)
-          echo "ANDROID_NDK_HOME=$REAL_NDK_PATH" >> $GITHUB_ENV
+          # Dynamically locate the NDK folder to ensure the path is 100% correct
+          NDK_PATH=$(find $GITHUB_WORKSPACE/ndk -maxdepth 1 -type d -name "android-ndk-*" | head -n 1)
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
 
       - name: Configure and Build FEX
         run: |
           mkdir -p build
+          # -G Ninja + CMAKE_MAKE_PROGRAM ensures the build tool is found
           cmake -S . -B build \
             -G Ninja \
             -DCMAKE_MAKE_PROGRAM=$(which ninja) \
