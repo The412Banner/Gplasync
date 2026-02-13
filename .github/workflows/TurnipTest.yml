@@ -1,0 +1,85 @@
+name: Test Turnip Driver Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-turnip:
+    name: Build Turnip (Adreno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build bison flex python3-mako python3-pip libxml2-utils
+
+      - name: Setup Android NDK
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+
+      - name: Clone Mesa (Latest)
+        run: |
+          git clone --depth 1 https://gitlab.freedesktop.org/mesa/mesa.git
+          cd mesa
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+
+      - name: Build Turnip
+        run: |
+          cd mesa
+          
+          # 1. Create a cross-file for Android build
+          cat <<EOF > android-aarch64
+          [binaries]
+          c = '${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang'
+          cpp = '${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++'
+          ar = '${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar'
+          strip = '${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip'
+          pkgconfig = 'false'
+          [host_machine]
+          system = 'android'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          EOF
+
+          # 2. Configure Meson
+          meson setup build-android \
+            --cross-file android-aarch64 \
+            -Dplatforms=android \
+            -Dplatform-sdk-version=29 \
+            -Dandroid-stub=true \
+            -Dgallium-drivers=freedreno \
+            -Dvulkan-drivers=freedreno \
+            -Dbuildtype=release
+          
+          # 3. Compile
+          ninja -C build-android
+
+      - name: Package Turnip
+        run: |
+          mkdir -p turnip-package
+          # Copy the Vulkan driver
+          cp mesa/build-android/src/freedreno/vulkan/libvulkan_freedreno.so turnip-package/
+          
+          # Create a simple meta.json so you know what commit this is
+          cat <<EOF > turnip-package/meta.json
+          {
+            "name": "Turnip Mesa Test",
+            "version": "${{ env.COMMIT_HASH }}",
+            "description": "Turnip driver built from Mesa main branch"
+          }
+          EOF
+          
+          # Compress into a tar.xz
+          tar -cJf turnip-${{ env.COMMIT_HASH }}.tar.xz -C turnip-package .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: turnip-driver
+          path: turnip-*.tar.xz
