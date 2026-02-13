@@ -146,22 +146,32 @@ jobs:
           path: ./artifacts
           merge-multiple: true
 
+      - name: Delete Old Nightly Tag
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git tag -d nightly || true
+          git push origin :refs/tags/nightly || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nightly
           name: "Nightly Build: ${{ needs.build-android-native.outputs.full_version }}"
+          prerelease: false
+          make_latest: true
           body: |
             ### 🛠 Build Details
             - **Version**: ${{ needs.build-android-native.outputs.full_version }}
-            - **Base Commit**: ${{ needs.build-android-native.outputs.commit_hash }}
+            - **Base Commit**: [${{ needs.build-android-native.outputs.commit_hash }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-android-native.outputs.commit_hash }})
             
             ### 📦 Files Included
             - `box64-*.wcp`: Box64 Android Native
             - `WOWBox64-*.wcp`: WOWBox64 (MinGW)
             
-            _These files are packaged with `profile.json` for easy installation._
-          prerelease: true
+            _These files are packaged with `profile.json` for easy installation in Winlator._
           files: |
             ./artifacts/*.wcp
         env:
