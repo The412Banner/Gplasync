@@ -314,146 +314,12 @@ jobs:
           path: '*.wcp'
 
   # ==================================================================
-  # JOB 5: VKD3D-Proton (Standard)
-  # ==================================================================
-  build-vkd3d:
-    name: Build VKD3D-Proton
-    runs-on: ubuntu-latest
-    outputs:
-      commit: ${{ steps.version.outputs.commit }}
-    steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-recommends \
-            ca-certificates curl xz-utils jq git glslang-tools \
-            build-essential python3 python3-pip pkg-config \
-            meson ninja-build zstd
-
-      - name: Setup Toolchain
-        run: |
-          LLVM_MINGW_TAG="20251104"
-          TOOLCHAIN_DIR="/opt/llvm-mingw"
-          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
-          sudo rm -rf "$TOOLCHAIN_DIR"
-          sudo mkdir -p "$TOOLCHAIN_DIR"
-          sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
-          echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
-
-      - name: Checkout VKD3D
-        uses: actions/checkout@v4
-        with:
-          repository: HansKristian-Work/vkd3d-proton
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Get Version Info
-        id: version
-        run: |
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
-          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
-          echo "VERSION_NAME=VKD3D-Proton-Nightly-${COMMIT_HASH}" >> $GITHUB_ENV
-
-      - name: Build VKD3D
-        run: |
-          export PATH="/opt/llvm-mingw/bin:$PATH"
-          
-          # Cross-file creation
-          cat <<EOF > cross-aarch64.txt
-          [binaries]
-          c = 'aarch64-w64-mingw32-clang'
-          cpp = 'aarch64-w64-mingw32-clang++'
-          ar = 'aarch64-w64-mingw32-ar'
-          strip = 'aarch64-w64-mingw32-strip'
-          pkgconfig = 'aarch64-w64-mingw32-pkg-config'
-          [host_machine]
-          system = 'windows'
-          cpu_family = 'aarch64'
-          cpu = 'aarch64'
-          endian = 'little'
-          EOF
-          
-          # Build System32 (AArch64)
-          meson setup build-aarch64 \
-            --cross-file cross-aarch64.txt \
-            --buildtype release \
-            -Denable_tests=false
-          ninja -C build-aarch64
-
-          # Build SysWOW64 (x86_64) for Hybrid
-          # We use x86_64 mingw for WOW64 parts
-          cat <<EOF > cross-x86_64.txt
-          [binaries]
-          c = 'x86_64-w64-mingw32-clang'
-          cpp = 'x86_64-w64-mingw32-clang++'
-          ar = 'x86_64-w64-mingw32-ar'
-          strip = 'x86_64-w64-mingw32-strip'
-          pkgconfig = 'x86_64-w64-mingw32-pkg-config'
-          [host_machine]
-          system = 'windows'
-          cpu_family = 'x86_64'
-          cpu = 'x86_64'
-          endian = 'little'
-          EOF
-
-          meson setup build-x86_64 \
-            --cross-file cross-x86_64.txt \
-            --buildtype release \
-            -Denable_tests=false
-          ninja -C build-x86_64
-
-      - name: Package
-        run: |
-          mkdir -p final_package/system32
-          mkdir -p final_package/syswow64
-          
-          # Copy DLLs
-          cp build-aarch64/libs/vkd3d/*.dll final_package/system32/
-          cp build-aarch64/libs/vkd3d-shader/*.dll final_package/system32/
-          cp build-x86_64/libs/vkd3d/*.dll final_package/syswow64/
-          cp build-x86_64/libs/vkd3d-shader/*.dll final_package/syswow64/
-
-          # Strip
-          /opt/llvm-mingw/bin/llvm-strip --strip-all final_package/system32/*.dll
-          /opt/llvm-mingw/bin/llvm-strip --strip-all final_package/syswow64/*.dll
-
-          # JSON Profile
-          cat <<EOF > final_package/profile.json
-          {
-            "type": "VKD3D",
-            "versionName": "${{ env.VERSION_NAME }}",
-            "versionCode": 0,
-            "description": "VKD3D-Proton Nightly\nCommit: ${{ env.COMMIT_HASH }}",
-            "files": []
-          }
-          EOF
-          
-          # Populate files list dynamically using jq (installed in dependencies)
-          cd final_package
-          for f in system32/*.dll syswow64/*.dll; do
-              [ -e "$f" ] || continue
-              TARGET_DIR="\${$(dirname "$f")}"
-              jq --arg src "$f" --arg tgt "$TARGET_DIR/$(basename "$f")" \
-                 '.files += [{"source": $src, "target": $tgt}]' \
-                 profile.json > tmp.json && mv tmp.json profile.json
-          done
-
-          # Compress
-          tar -cJf ../${{ env.VERSION_NAME }}.wcp .
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: vkd3d-nightly
-          path: '*.wcp'
-
-  # ==================================================================
-  # JOB 6: Consolidated Release & Notify (Keeps Last 5)
+  # JOB 5: Consolidated Release & Notify (Keeps Last 5)
   # ==================================================================
   create-release:
     name: Create Nightly Release
     runs-on: ubuntu-latest
-    needs: [build-box64, build-wowbox64, build-fex, build-dxvk, build-vkd3d]
+    needs: [build-box64, build-wowbox64, build-fex, build-dxvk]
     permissions:
       contents: write
     steps:
@@ -482,14 +348,12 @@ jobs:
             | **WOWBox64** | ${{ needs.build-wowbox64.outputs.version }} |
             | **FEXCore** | ${{ needs.build-fex.outputs.version }} |
             | **DXVK (GPLAsync)** | [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }}) |
-            | **VKD3D-Proton** | [${{ needs.build-vkd3d.outputs.commit }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }}) |
             
             ### 📦 Files Included
             1. **Box64 Native**: `box64-*.wcp`
             2. **WOWBox64**: `WOWBox64-*.wcp`
             3. **FEXCore**: `FEX-*.wcp`
             4. **DXVK**: `dxvk-gplasync-*.wcp`
-            5. **VKD3D**: `VKD3D-Proton-*.wcp`
             
             _These files are packaged for use with Winlator._
           files: ./artifacts/*.wcp
@@ -501,7 +365,7 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
-          args: '🚀 **New Emulation Nightly Released!**\nBuild: ${{ env.TAG_NAME }}\n\n🔗 **Source Commits:**\n• Box64: [${{ needs.build-box64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }})\n• WOWBox64: [${{ needs.build-wowbox64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }})\n• FEXCore: [${{ needs.build-fex.outputs.commit }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }})\n• DXVK: [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }})\n• VKD3D: [${{ needs.build-vkd3d.outputs.commit }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }})\n\n📥 **Download:** https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG_NAME }}'
+          args: '🚀 **New Emulation Nightly Released!**\nBuild: ${{ env.TAG_NAME }}\n\n🔗 **Source Commits:**\n• Box64: [${{ needs.build-box64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }})\n• WOWBox64: [${{ needs.build-wowbox64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }})\n• FEXCore: [${{ needs.build-fex.outputs.commit }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }})\n• DXVK: [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }})\n\n📥 **Download:** https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG_NAME }}'
 
       - name: Cleanup Old Releases (Keep 5)
         env:
@@ -525,4 +389,3 @@ jobs:
             wowbox64-mingw
             fex-nightly
             dxvk-nightly
-            vkd3d-nightly
