@@ -13,6 +13,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
+          # We still install these to be safe, including libelf-dev
           sudo apt-get install -y ninja-build bison flex python3-mako python3-pip libxml2-utils libelf-dev glslang-tools pkg-config
           sudo pip3 install meson
 
@@ -22,9 +23,18 @@ jobs:
           unzip -q android-ndk-r26b-linux.zip
           echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
 
-      - name: Clone Mesa (Latest)
+      - name: Clone Mesa & LibDRM
         run: |
+          # 1. Clone Mesa (The main graphics library)
           git clone --depth 1 https://gitlab.freedesktop.org/mesa/mesa.git
+          
+          # 2. Clone libdrm (The missing dependency)
+          git clone --depth 1 https://gitlab.freedesktop.org/mesa/drm.git libdrm
+          
+          # 3. Move libdrm into Mesa's 'subprojects' folder
+          #    This forces Meson to use this local copy instead of looking for it on the system.
+          mv libdrm mesa/subprojects/
+
           cd mesa
           COMMIT_HASH=$(git rev-parse --short HEAD)
           echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
@@ -33,7 +43,7 @@ jobs:
         run: |
           cd mesa
           
-          # 1. Create a cross-file for Android build
+          # Create cross-file for Android
           cat <<EOF > android-aarch64
           [binaries]
           c = '${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang'
@@ -48,8 +58,8 @@ jobs:
           endian = 'little'
           EOF
 
-          # 2. Configure Meson
-          # Added --force-fallback-for=libdrm to fix the missing dependency
+          # Configure Meson
+          # We added --force-fallback-for=libdrm just to be double sure it uses the one we downloaded
           meson setup build-android \
             --cross-file android-aarch64 \
             -Dplatforms= \
@@ -59,25 +69,25 @@ jobs:
             -Dbuildtype=release \
             --force-fallback-for=libdrm
           
-          # 3. Compile
+          # Compile
           ninja -C build-android
 
       - name: Package Turnip
         run: |
           mkdir -p turnip-package
-          # Copy the Vulkan driver
+          # Copy the compiled Vulkan driver
           cp mesa/build-android/src/freedreno/vulkan/libvulkan_freedreno.so turnip-package/
           
-          # Create a simple meta.json
+          # Create meta.json
           cat <<EOF > turnip-package/meta.json
           {
-            "name": "Turnip Mesa Test",
+            "name": "Turnip Mesa Nightly",
             "version": "${{ env.COMMIT_HASH }}",
             "description": "Turnip driver built from Mesa main branch"
           }
           EOF
           
-          # Compress into a tar.xz
+          # Compress
           tar -cJf turnip-${{ env.COMMIT_HASH }}.tar.xz -C turnip-package .
 
       - name: Upload Artifact
