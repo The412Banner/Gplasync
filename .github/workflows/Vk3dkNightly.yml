@@ -1,4 +1,4 @@
-name: Build VKD3D-Proton (Toolchain Strip Fix)
+name: Build VKD3D-Proton (Standard Only)
 
 on:
   workflow_dispatch:
@@ -6,9 +6,6 @@ on:
     - cron: "0 18 * * *"
 
 jobs:
-  # ==================================================================
-  # JOB 1: STANDARD BUILD (LOCKED & WORKING)
-  # ==================================================================
   build-standard:
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +43,7 @@ jobs:
 
       - name: Build Standard
         run: |
+          # Configure 64-bit cross file
           cat <<EOF > cross-x64.txt
           [binaries]
           c = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-clang'
@@ -63,6 +61,7 @@ jobs:
           endian = 'little'
           EOF
 
+          # Configure 32-bit cross file
           cat <<EOF > cross-x86.txt
           [binaries]
           c = '/opt/llvm-mingw/bin/i686-w64-mingw32-clang'
@@ -81,8 +80,11 @@ jobs:
           EOF
 
           cd src
+          # Build 64-bit
           meson setup build-x64 --cross-file ../cross-x64.txt -Dbuildtype=release -Dstrip=true
           ninja -C build-x64
+          
+          # Build 32-bit
           meson setup build-x86 --cross-file ../cross-x86.txt -Dbuildtype=release -Dstrip=true
           ninja -C build-x86
 
@@ -92,11 +94,13 @@ jobs:
           mkdir -p final_package/system32
           mkdir -p final_package/syswow64
           
+          # Copy DLLs
           find src/build-x64 -name "d3d12.dll" -exec cp -L {} final_package/system32/ \;
           find src/build-x64 -name "d3d12core.dll" -exec cp -L {} final_package/system32/ \;
           find src/build-x86 -name "d3d12.dll" -exec cp -L {} final_package/syswow64/ \;
           find src/build-x86 -name "d3d12core.dll" -exec cp -L {} final_package/syswow64/ \;
           
+          # Create Profile JSON
           cat <<EOF > final_package/profile.json
           {
             "type": "VKD3D",
@@ -112,6 +116,7 @@ jobs:
           }
           EOF
           
+          # Compress
           cd final_package
           tar -cJf ../VKD3D-Proton-${{ env.VERSION_NAME }}.wcp *
 
@@ -119,158 +124,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vkd3d-standard
-          path: '*.wcp'
-
-
-  # ==================================================================
-  # JOB 2: ARM64EC BUILD (ARCH LINUX + EXPLICIT TOOLCHAIN STRIP)
-  # ==================================================================
-  build-arm64ec:
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    steps:
-      - name: Install Dependencies (Arch)
-        run: |
-          pacman -Sy --noconfirm git base-devel glslang python python-pip cmake ninja jq wget tar zstd
-
-      - name: Checkout VKD3D
-        uses: actions/checkout@v4
-        with:
-          repository: HansKristian-Work/vkd3d-proton
-          submodules: recursive
-          path: src
-
-      - name: Setup Toolchain & Meson
-        run: |
-          python -m venv .venv
-          .venv/bin/python -m pip install "meson==1.2.3" "ninja==1.11.1"
-          
-          # Use Arihany's Toolchain Version
-          LLVM_TAG="20251216"
-          TOOLCHAIN="/opt/llvm-mingw"
-          mkdir -p "$TOOLCHAIN"
-          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_TAG/llvm-mingw-$LLVM_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
-          tar -C "$TOOLCHAIN" --strip-components=1 -xJf llvm.tar.xz
-          
-          echo "$TOOLCHAIN/bin" >> $GITHUB_PATH
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
-
-      - name: Install SPIRV-Headers (Specific Targets)
-        run: |
-          SPV_TMP="$(mktemp -d)"
-          git clone --depth=1 https://github.com/KhronosGroup/SPIRV-Headers.git "$SPV_TMP"
-          
-          # Only x86/x64 (Arihany Logic)
-          for trip in x86_64-w64-mingw32 i686-w64-mingw32; do
-            if [ -d "/opt/llvm-mingw/$trip/include" ]; then
-              mkdir -p "/opt/llvm-mingw/$trip/include/spirv"
-              cp -r "$SPV_TMP/include/spirv/"* "/opt/llvm-mingw/$trip/include/spirv/"
-            fi
-          done
-
-      - name: Generate Version Name
-        run: |
-          cd src
-          git config --global --add safe.directory '*'
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          echo "VERSION_NAME=3.0b-ARM64EC-${COMMIT_HASH}" >> $GITHUB_ENV
-
-      - name: Build & Stage (Toolchain Strip Fix)
-        run: |
-          # The Magic: Define 'strip' explicitly as the toolchain version
-          
-          cat <<EOF > arm64ec.ini
-          [binaries]
-          c = 'arm64ec-w64-mingw32-gcc'
-          cpp = 'arm64ec-w64-mingw32-g++'
-          ar = 'arm64ec-w64-mingw32-ar'
-          # EXPLICIT STRIP PATH: Prevents system strip from breaking header
-          strip = '/opt/llvm-mingw/bin/llvm-strip'
-          windres = 'arm64ec-w64-mingw32-windres'
-          widl = 'arm64ec-w64-mingw32-widl'
-          
-          [host_machine]
-          system = 'windows'
-          cpu_family = 'aarch64' # The Spoof
-          cpu = 'aarch64'
-          endian = 'little'
-          EOF
-
-          cat <<EOF > x86.ini
-          [binaries]
-          c = 'i686-w64-mingw32-gcc'
-          cpp = 'i686-w64-mingw32-g++'
-          ar = 'llvm-ar'
-          strip = '/opt/llvm-mingw/bin/llvm-strip'
-          windres = 'i686-w64-mingw32-windres'
-          widl = 'i686-w64-mingw32-widl'
-          [host_machine]
-          system = 'windows'
-          cpu_family = 'x86'
-          cpu = 'i686'
-          endian = 'little'
-          EOF
-
-          cd src
-          # Enable stripping - Meson will now use the correct binary defined above
-          meson setup build_ec --cross-file ../arm64ec.ini --buildtype release --prefix "$PWD/stage/ec" -Dstrip=true
-          ninja -C build_ec install
-          
-          meson setup build_x86 --cross-file ../x86.ini --buildtype release --prefix "$PWD/stage/x86" -Dstrip=true
-          ninja -C build_x86 install
-
-      - name: Verify Architecture
-        run: |
-          echo "=========================================="
-          echo "VERIFYING DLL ARCHITECTURE..."
-          
-          MACHINE_TYPE=$(/opt/llvm-mingw/bin/llvm-readobj -h src/stage/ec/bin/d3d12.dll | grep "Machine:")
-          echo "FOUND: $MACHINE_TYPE"
-          
-          if echo "$MACHINE_TYPE" | grep -q "AARCH64"; then
-             echo "SUCCESS: Binary matches AARCH64 (0xAA64)."
-          else
-             echo "::error::FAILURE: Unexpected Header: $MACHINE_TYPE"
-             exit 1
-          fi
-          echo "=========================================="
-
-      - name: Package Final
-        run: |
-          rm -rf final_package
-          mkdir -p final_package/system32 final_package/syswow64
-          
-          cp -L src/stage/ec/bin/*.dll final_package/system32/
-          cp -L src/stage/x86/bin/*.dll final_package/syswow64/
-
-          echo "{}" > final_package/profile.json
-          jq -n \
-            --arg vn "${{ env.VERSION_NAME }}" \
-            '{
-              type: "VKD3D",
-              versionName: $vn,
-              versionCode: 0,
-              description: ("vkd3d-proton Nightly " + $vn),
-              files: []
-            }' > final_package/profile.json
-
-          for f in final_package/system32/*.dll final_package/syswow64/*.dll; do
-              [ -e "$f" ] || continue
-              REL_PATH=${f#final_package/}
-              FOLDER=$(dirname "$REL_PATH")
-              if [[ "$FOLDER" == "system32" ]]; then TARGET="\${system32}"; else TARGET="\${syswow64}"; fi
-              jq --arg src "$REL_PATH" --arg tgt "$TARGET/$(basename "$f")" \
-                 '.files += [{"source": $src, "target": $tgt}]' \
-                 final_package/profile.json > final_package/tmp.json && mv final_package/tmp.json final_package/profile.json
-          done
-
-          chmod -R 777 final_package
-          cd final_package
-          tar --zstd --format=gnu --owner=0 --group=0 --numeric-owner -cf ../VKD3D-Proton-${{ env.VERSION_NAME }}.wcp *
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vkd3d-toolchain-strip
           path: '*.wcp'
