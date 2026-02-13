@@ -13,7 +13,10 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build bison flex python3-mako python3-pip libxml2-utils
+          # Removed 'meson' from apt-get to avoid the old version
+          sudo apt-get install -y ninja-build bison flex python3-mako python3-pip libxml2-utils
+          # Install the latest Meson via pip
+          sudo pip3 install meson
 
       - name: Setup Android NDK
         run: |
@@ -66,7 +69,7 @@ jobs:
           # Copy the Vulkan driver
           cp mesa/build-android/src/freedreno/vulkan/libvulkan_freedreno.so turnip-package/
           
-          # Create a simple meta.json so you know what commit this is
+          # Create a simple meta.json
           cat <<EOF > turnip-package/meta.json
           {
             "name": "Turnip Mesa Test",
