@@ -1,6 +1,8 @@
 name: Build Box64 & WOWBox64 Nightly
+
 on:
   schedule:
+    # 4am EST is 9am UTC
     - cron: '0 9 * * *'
   workflow_dispatch:
 
@@ -17,15 +19,15 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          [span_1](start_span)sudo apt-get update[span_1](end_span)
-          [span_2](start_span)sudo apt-get install -y git cmake make python3 p7zip-full wget tar file[span_2](end_span)
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 p7zip-full wget tar file
 
       - name: Setup Android NDK
         run: |
-          [span_3](start_span)wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip[span_3](end_span)
-          [span_4](start_span)unzip -q android-ndk-r26b-linux.zip[span_4](end_span)
-          [span_5](start_span)echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV[span_5](end_span)
-          [span_6](start_span)echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" >> $GITHUB_ENV[span_6](end_span)
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+          echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" >> $GITHUB_ENV
 
       - name: Clone Box64
         run: git clone https://github.com/ptitSeb/box64 source
@@ -34,40 +36,40 @@ jobs:
         id: version
         run: |
           cd source
-          [span_7](start_span)MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')[span_7](end_span)
-          [span_8](start_span)MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')[span_8](end_span)
-          [span_9](start_span)REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')[span_9](end_span)
-          [span_10](start_span)VERSION="$MAJOR.$MINOR.$REVISION"[span_10](end_span)
-          [span_11](start_span)COMMIT=$(git rev-parse --short HEAD)[span_11](end_span)
-          [span_12](start_span)FULL_V="${VERSION}-${COMMIT}-nightly"[span_12](end_span)
+          MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
+          MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
+          REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+          VERSION="$MAJOR.$MINOR.$REVISION"
+          COMMIT=$(git rev-parse --short HEAD)
+          FULL_V="${VERSION}-${COMMIT}-nightly"
           echo "FULL_VERSION=$FULL_V" >> $GITHUB_ENV
           echo "version=$FULL_V" >> $GITHUB_OUTPUT
           echo "commit=$COMMIT" >> $GITHUB_OUTPUT
 
       - name: Configure and Build
         run: |
-          [span_13](start_span)mkdir build[span_13](end_span)
-          [span_14](start_span)cd build[span_14](end_span)
+          mkdir build
+          cd build
           cmake ../source \
             -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} \
             -DANDROID=1 \
             -DARM_DYNAREC=1 \
             -DBAD_SIGNAL=1 \
-            -[span_15](start_span)DCMAKE_BUILD_TYPE=Release[span_15](end_span)
-          [span_16](start_span)make -j$(nproc)[span_16](end_span)
-          [span_17](start_span)${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64[span_17](end_span)
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
 
       - name: Package
         run: |
-          [span_18](start_span)cd build[span_18](end_span)
-          [span_19](start_span)echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json[span_19](end_span)
-          [span_20](start_span)tar -cJf "box64-${{ env.FULL_VERSION }}.wcp" box64 profile.json[span_20](end_span)
+          cd build
+          echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
+          tar -cJf "box64-${{ env.FULL_VERSION }}.wcp" box64 profile.json
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          [span_21](start_span)name: box64-android-native[span_21](end_span)
-          [span_22](start_span)path: build/box64-*.wcp[span_22](end_span)
+          name: box64-android-native
+          path: build/box64-*.wcp
 
   build-wowbox64:
     name: Build WOWBox64 (MinGW)
@@ -79,56 +81,56 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          [span_23](start_span)sudo apt-get update[span_23](end_span)
-          [span_24](start_span)sudo apt-get install -y git cmake make python3 wget tar[span_24](end_span)
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 wget tar
 
       - name: Setup Toolchain
         run: |
-          [span_25](start_span)LLVM_MINGW_VERSION=20240619[span_25](end_span)
-          [span_26](start_span)wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz[span_26](end_span)
-          [span_27](start_span)tar -xf llvm-mingw-*.tar.xz[span_27](end_span)
-          [span_28](start_span)echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV[span_28](end_span)
+          LLVM_MINGW_VERSION=20240619
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-*.tar.xz
+          echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV
 
       - name: Clone and Patch
         run: |
-          [span_29](start_span)git clone https://github.com/ptitSeb/box64 source[span_29](end_span)
-          [span_30](start_span)cd source[span_30](end_span)
-          echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); [span_31](start_span)}' >> wine/common/crt.c[span_31](end_span)
+          git clone https://github.com/ptitSeb/box64 source
+          cd source
+          echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); }' >> wine/common/crt.c
 
       - name: Get Version Info
         run: |
-          [span_32](start_span)cd source[span_32](end_span)
-          [span_33](start_span)MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')[span_33](end_span)
-          [span_34](start_span)MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')[span_34](end_span)
-          [span_35](start_span)REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')[span_35](end_span)
-          [span_36](start_span)VERSION="$MAJOR.$MINOR.$REVISION"[span_36](end_span)
-          [span_37](start_span)COMMIT=$(git rev-parse --short HEAD)[span_37](end_span)
-          [span_38](start_span)echo "FULL_VERSION=${VERSION}-${COMMIT}-nightly" >> $GITHUB_ENV[span_38](end_span)
+          cd source
+          MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
+          MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
+          REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+          VERSION="$MAJOR.$MINOR.$REVISION"
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "FULL_VERSION=${VERSION}-${COMMIT}-nightly" >> $GITHUB_ENV
 
       - name: Configure and Build
         run: |
-          [span_39](start_span)export PATH=$PATH:${{ env.MINGW_PATH }}[span_39](end_span)
-          [span_40](start_span)mkdir build[span_40](end_span)
-          [span_41](start_span)cd build[span_41](end_span)
+          export PATH=$PATH:${{ env.MINGW_PATH }}
+          mkdir build
+          cd build
           cmake ../source \
             -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc \
             -DWOW64=1 \
             -DARM_DYNAREC=1 \
-            -[span_42](start_span)DCMAKE_BUILD_TYPE=Release[span_42](end_span)
-          [span_43](start_span)make -j$(nproc) wowbox64[span_43](end_span)
+            -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc) wowbox64
 
       - name: Package
         run: |
-          [span_44](start_span)cd build/wowbox64-prefix/src/wowbox64-build[span_44](end_span)
-          [span_45](start_span)echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json[span_45](end_span)
-          [span_46](start_span)mkdir -p system32 && cp wowbox64.dll system32/[span_46](end_span)
-          [span_47](start_span)tar -cJf "WOWBox64-${{ env.FULL_VERSION }}.wcp" system32 profile.json[span_47](end_span)
+          cd build/wowbox64-prefix/src/wowbox64-build
+          echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
+          mkdir -p system32 && cp wowbox64.dll system32/
+          tar -cJf "WOWBox64-${{ env.FULL_VERSION }}.wcp" system32 profile.json
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          [span_48](start_span)name: wowbox64-mingw[span_48](end_span)
-          [span_49](start_span)path: build/wowbox64-prefix/src/wowbox64-build/WOWBox64-*.wcp[span_49](end_span)
+          name: wowbox64-mingw
+          path: build/wowbox64-prefix/src/wowbox64-build/WOWBox64-*.wcp
 
   create-release:
     name: Create Nightly Release
@@ -175,4 +177,3 @@ jobs:
           name: |
             box64-android-native
             wowbox64-mingw
-
