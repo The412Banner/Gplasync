@@ -1,8 +1,9 @@
 name: Build Box64 & WOWBox64 Nightly
 
 on:
+  push:
+    branches: [ main ]
   schedule:
-    # 4am EST is 9am UTC
     - cron: '0 9 * * *'
   workflow_dispatch:
 
