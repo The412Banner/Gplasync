@@ -1,3 +1,5 @@
+![Header Image](img.png)
+
 <h3 align="center">The412Banner Nightly Repo for Winlator Emulation</h3>
 
 I borrowed most of this readme from Arihany, from her GitHub WCP Repo, the best I've found to this day if I am being honest.  found here:
