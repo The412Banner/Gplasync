@@ -243,7 +243,7 @@ jobs:
           path: '*.wcp'
 
   # ==================================================================
-  # JOB 4: VKD3D-Proton (Standard)
+  # JOB 4: VKD3D-Proton (Standard x86/x64)
   # ==================================================================
   build-vkd3d:
     name: Build VKD3D-Proton (Standard)
@@ -444,12 +444,150 @@ jobs:
           path: '*.wcp'
 
   # ==================================================================
-  # JOB 6: Consolidated Release (Keeps Last 5)
+  # JOB 6: VKD3D-Proton (ARM64EC) - FIXED & CUSTOM JSON
+  # ==================================================================
+  build-vkd3d-arm64ec:
+    name: Build VKD3D-Proton (ARM64EC)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl xz-utils jq git glslang-tools \
+            build-essential python3 python3-pip pkg-config \
+            meson ninja-build zstd
+
+      - name: Setup Toolchain (llvm-mingw)
+        run: |
+          LLVM_MINGW_TAG="20251104"
+          TOOLCHAIN_DIR="/opt/llvm-mingw"
+          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
+          sudo rm -rf "$TOOLCHAIN_DIR"
+          sudo mkdir -p "$TOOLCHAIN_DIR"
+          sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
+          echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
+
+      - name: Checkout VKD3D-Proton
+        uses: actions/checkout@v4
+        with:
+          repository: HansKristian-Work/vkd3d-proton
+          submodules: recursive
+          fetch-depth: 0
+          path: src
+
+      - name: Generate Version Info
+        id: version
+        run: |
+          cd src
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+          VERSION_NAME="3.0b-ARM64EC-${COMMIT_HASH}"
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+          echo "version=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Build ARM64EC & x86
+        run: |
+          cat <<EOF > arm64ec.txt
+          [binaries]
+          c = 'arm64ec-w64-mingw32-clang'
+          cpp = 'arm64ec-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'arm64ec-w64-mingw32-windres'
+          widl = 'arm64ec-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          EOF
+
+          cat <<EOF > x86.txt
+          [binaries]
+          c = 'i686-w64-mingw32-clang'
+          cpp = 'i686-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'i686-w64-mingw32-windres'
+          widl = 'i686-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
+          EOF
+
+          cd src
+          
+          meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-ec
+
+          meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-x86
+
+      - name: Package Artifacts
+        run: |
+          rm -rf final_package
+          mkdir -p final_package/system32
+          mkdir -p final_package/syswow64
+
+          find src/build-ec -name "d3d12.dll" -exec cp -L {} final_package/system32/ \;
+          find src/build-ec -name "d3d12core.dll" -exec cp -L {} final_package/system32/ \;
+
+          find src/build-x86 -name "d3d12.dll" -exec cp -L {} final_package/syswow64/ \;
+          find src/build-x86 -name "d3d12core.dll" -exec cp -L {} final_package/syswow64/ \;
+
+          cat <<EOF > final_package/profile.json
+          {
+            "type": "VKD3D",
+            "versionName": "arm64ec-3.0b ARM64ec",
+            "versionCode": 0,
+            "description": "Nightly Built for Winlator ${{ env.COMMIT_HASH }} (Upstream: Hans-Kristian Arntzen)",
+            "files": [
+              {
+                "source": "system32/d3d12.dll",
+                "target": "\${system32}/d3d12.dll"
+              },
+              {
+                "source": "system32/d3d12core.dll",
+                "target": "\${system32}/d3d12core.dll"
+              },
+              {
+                "source": "syswow64/d3d12.dll",
+                "target": "\${syswow64}/d3d12.dll"
+              },
+              {
+                "source": "syswow64/d3d12core.dll",
+                "target": "\${syswow64}/d3d12core.dll"
+              }
+            ]
+          }
+          EOF
+
+          cd final_package
+          # FIX: ZSTD + 0:0 Permissions
+          tar --zstd --format=gnu --owner=0 --group=0 --numeric-owner -cf ../VKD3D-Proton-${{ env.VERSION_NAME }}.wcp *
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vkd3d-arm64ec
+          path: '*.wcp'
+
+  # ==================================================================
+  # JOB 7: Consolidated Release (Keeps Last 5)
   # ==================================================================
   create-release:
     name: Create Nightly Release
     runs-on: ubuntu-latest
-    needs: [build-box64, build-wowbox64, build-fex, build-vkd3d, build-dxvk]
+    needs: [build-box64, build-wowbox64, build-fex, build-vkd3d, build-dxvk, build-vkd3d-arm64ec]
     permissions:
       contents: write
     steps:
@@ -477,15 +615,17 @@ jobs:
             | **Box64 (Native)** | [${{ needs.build-box64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }}) |
             | **WOWBox64** | [${{ needs.build-wowbox64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }}) |
             | **FEXCore** | [${{ needs.build-fex.outputs.version }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }}) |
-            | **VKD3D-Proton** | [${{ needs.build-vkd3d.outputs.version }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }}) |
+            | **VKD3D-Proton (Std)** | [${{ needs.build-vkd3d.outputs.version }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }}) |
+            | **VKD3D-Proton (ARM64EC)** | [${{ needs.build-vkd3d-arm64ec.outputs.version }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d-arm64ec.outputs.commit }}) |
             | **DXVK (GPLAsync)** | [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }}) |
             
             ### 📦 Files Included
             1. **Box64 Native**: `box64-*.wcp`
             2. **WOWBox64**: `WOWBox64-*.wcp`
             3. **FEXCore**: `FEX-*.wcp`
-            4. **VKD3D-Proton**: `VKD3D-Proton-*.wcp`
-            5. **DXVK**: `dxvk-gplasync-*.wcp`
+            4. **VKD3D-Proton (Std)**: `VKD3D-Proton-3.0b*.wcp`
+            5. **VKD3D-Proton (ARM64EC)**: `VKD3D-Proton-3.0b-ARM64EC*.wcp`
+            6. **DXVK**: `dxvk-gplasync-*.wcp`
             
             _These files are packaged for use with Winlator._
           files: ./artifacts/*.wcp
@@ -497,7 +637,7 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
-          args: '🚀 **New Emulation Nightly Released!**\nBuild: ${{ env.TAG_NAME }}\n\n🔗 **Source Commits:**\n• Box64: [${{ needs.build-box64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }})\n• WOWBox64: [${{ needs.build-wowbox64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }})\n• FEXCore: [${{ needs.build-fex.outputs.commit }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }})\n• VKD3D: [${{ needs.build-vkd3d.outputs.commit }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }})\n• DXVK: [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }})\n\n📥 **Download:** https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG_NAME }}'
+          args: '🚀 **New Emulation Nightly Released!**\nBuild: ${{ env.TAG_NAME }}\n\n🔗 **Source Commits:**\n• Box64: [${{ needs.build-box64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }})\n• WOWBox64: [${{ needs.build-wowbox64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }})\n• FEXCore: [${{ needs.build-fex.outputs.commit }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }})\n• VKD3D (Std): [${{ needs.build-vkd3d.outputs.commit }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }})\n• VKD3D (ARM64EC): [${{ needs.build-vkd3d-arm64ec.outputs.commit }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d-arm64ec.outputs.commit }})\n• DXVK: [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }})\n\n📥 **Download:** https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG_NAME }}'
 
       - name: Cleanup Old Releases (Keep 5)
         env:
@@ -522,3 +662,4 @@ jobs:
             fex-nightly
             dxvk-nightly
             vkd3d-standard
+            vkd3d-arm64ec
