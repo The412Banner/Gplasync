@@ -243,78 +243,7 @@ jobs:
           path: '*.wcp'
 
   # ==================================================================
-  # JOB 4: DXVK Nightly (GPLAsync)
-  # ==================================================================
-  build-dxvk:
-    name: Build DXVK (GPLAsync)
-    runs-on: ubuntu-latest
-    outputs:
-      commit: ${{ steps.version.outputs.commit }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: doitsujin/dxvk
-          path: dxvk
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y meson ninja-build mingw-w64 glslang-tools wine
-
-      - name: Apply GPLAsync Patch
-        run: |
-          cd dxvk
-          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
-          git apply dxvk-gplasync-master.patch
-
-      - name: Build DXVK
-        run: |
-          cd dxvk
-          ./package-release.sh master ../dxvk-built --no-package
-
-      - name: Get Version Info
-        id: version
-        run: |
-          cd dxvk
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
-          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
-
-      - name: Package
-        run: |
-          BUILD_DATE=$(date +'%Y-%m-%d')
-          mkdir -p packaging/system32 packaging/syswow64
-          cp dxvk-built/dxvk-master/x64/*.dll packaging/system32/
-          cp dxvk-built/dxvk-master/x32/*.dll packaging/syswow64/
-          cat <<EOF > packaging/profile.json
-          {
-            "type": "DXVK",
-            "versionName": "2.7.1-gplasync-${{ env.COMMIT_HASH }}",
-            "versionCode": ${{ github.run_number }},
-            "description": "DXVK Nightly (GPLAsync)\nCommit: ${{ env.COMMIT_HASH }}\nDate: ${BUILD_DATE}",
-            "author": "Blank",
-            "files": [
-              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
-              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
-              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
-              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
-              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
-              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
-              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
-              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
-            ]
-          }
-          EOF
-          tar -cJf dxvk-gplasync-${{ env.COMMIT_HASH }}.wcp -C packaging .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dxvk-nightly
-          path: '*.wcp'
-
-  # ==================================================================
-  # JOB 5: VKD3D-Proton (Standard)
+  # JOB 4: VKD3D-Proton (Standard)
   # ==================================================================
   build-vkd3d:
     name: Build VKD3D-Proton (Standard)
@@ -444,12 +373,83 @@ jobs:
           path: '*.wcp'
 
   # ==================================================================
-  # JOB 6: Consolidated Release & Notify (Keeps Last 5)
+  # JOB 5: DXVK Nightly (GPLAsync)
+  # ==================================================================
+  build-dxvk:
+    name: Build DXVK (GPLAsync)
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: doitsujin/dxvk
+          path: dxvk
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build mingw-w64 glslang-tools wine
+
+      - name: Apply GPLAsync Patch
+        run: |
+          cd dxvk
+          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
+          git apply dxvk-gplasync-master.patch
+
+      - name: Build DXVK
+        run: |
+          cd dxvk
+          ./package-release.sh master ../dxvk-built --no-package
+
+      - name: Get Version Info
+        id: version
+        run: |
+          cd dxvk
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Package
+        run: |
+          BUILD_DATE=$(date +'%Y-%m-%d')
+          mkdir -p packaging/system32 packaging/syswow64
+          cp dxvk-built/dxvk-master/x64/*.dll packaging/system32/
+          cp dxvk-built/dxvk-master/x32/*.dll packaging/syswow64/
+          cat <<EOF > packaging/profile.json
+          {
+            "type": "DXVK",
+            "versionName": "2.7.1-gplasync-${{ env.COMMIT_HASH }}",
+            "versionCode": ${{ github.run_number }},
+            "description": "DXVK Nightly (GPLAsync)\nCommit: ${{ env.COMMIT_HASH }}\nDate: ${BUILD_DATE}",
+            "author": "Blank",
+            "files": [
+              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
+              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
+              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
+              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
+              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
+              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
+              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
+              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
+            ]
+          }
+          EOF
+          tar -cJf dxvk-gplasync-${{ env.COMMIT_HASH }}.wcp -C packaging .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-nightly
+          path: '*.wcp'
+
+  # ==================================================================
+  # JOB 6: Consolidated Release (Keeps Last 5)
   # ==================================================================
   create-release:
     name: Create Nightly Release
     runs-on: ubuntu-latest
-    needs: [build-box64, build-wowbox64, build-fex, build-dxvk, build-vkd3d]
+    needs: [build-box64, build-wowbox64, build-fex, build-vkd3d, build-dxvk]
     permissions:
       contents: write
     steps:
@@ -474,10 +474,10 @@ jobs:
             
             | Component | Version / Commit |
             | :--- | :--- |
-            | **Box64 (Native)** | ${{ needs.build-box64.outputs.version }} |
-            | **WOWBox64** | ${{ needs.build-wowbox64.outputs.version }} |
-            | **FEXCore** | ${{ needs.build-fex.outputs.version }} |
-            | **VKD3D-Proton** | ${{ needs.build-vkd3d.outputs.version }} |
+            | **Box64 (Native)** | [${{ needs.build-box64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }}) |
+            | **WOWBox64** | [${{ needs.build-wowbox64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }}) |
+            | **FEXCore** | [${{ needs.build-fex.outputs.version }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }}) |
+            | **VKD3D-Proton** | [${{ needs.build-vkd3d.outputs.version }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }}) |
             | **DXVK (GPLAsync)** | [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }}) |
             
             ### 📦 Files Included
@@ -491,13 +491,6 @@ jobs:
           files: ./artifacts/*.wcp
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Discord Notification
-        uses: ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: '🚀 **New Emulation Nightly Released!**\nBuild: ${{ env.TAG_NAME }}\n\n🔗 **Source Commits:**\n• Box64: [${{ needs.build-box64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }})\n• WOWBox64: [${{ needs.build-wowbox64.outputs.commit }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }})\n• FEXCore: [${{ needs.build-fex.outputs.commit }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }})\n• VKD3D: [${{ needs.build-vkd3d.outputs.commit }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }})\n• DXVK: [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }})\n\n📥 **Download:** https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG_NAME }}'
 
       - name: Cleanup Old Releases (Keep 5)
         env:
