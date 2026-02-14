@@ -25,36 +25,6 @@ https://github.com/Arihany/WinlatorWCPHub
 
 ---
 
-
-</details>
-
-
-### ⚙️ General Modern Mono Settings
-
-| FEXCore | 🏷️ | 📖 |
-|:-:|:-:|-|
-| **TSO** | `1` | Keep as is. |
-| **MEMCPYSETTSO** | `0` | If you still get crashes/freezes with `TSO = 1`, set this to `1`. | 
-| **VECTORTSO** | `0` | If you still get crashes/freezes with `TSO = 1` `MEMCPYSETTSO = 1`, set this to `1`. Very heavy. |
-| **HALFBARRIERTSO** | `1` | Keep as is. |
-| **MULTIBLOCK** | `0` | Once TSO-related settings are stable, you can try `1` for potential performance gains. |
-
-| Box64 | 🏷️ | 📖 |
-|:-:|:-:|-|
-| **SAFEFLAGS** | `1` | If you still get crashes/freezes, set this to `2`. Very heavy. |
-| **STRONGMEM** | `1` | If you still get crashes/freezes, set this to `2`. Very heavy. |
-| **WEAKBARRIER** | `1` | Reduces the performance cost of `STRONGMEM`. Set to `0` if the game crashes. |
-| **BIGBLOCK** | `0-2` | Official recommendation is `0`, but `2` often works fine in practice. |
-| **FORWARD** | `128-256` | Higher values mainly increase the risk of subtle, unpredictable side effects. |
-| **CALLRET** | `0` | Keep as is. |
-| **WAIT** | `1` | `0` might help performance in heavily multithreaded or JIT-heavy workloads. |
-
-- If you see graphics/animation/physics glitches in older games, try experimenting with `BOX64_FASTNAN` `BOX64_FASTROUND` `BOX64_X87DOUBLE` `FEX_X87REDUCEDPRECISION`
-
-</details>
-
----
-
 <h3 align="center">Additional Packages</h3>
 
 ---
