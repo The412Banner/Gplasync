@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./img.png" width="180">
+  <img src="img.png" width="180">
 </p>
 
 <h3 align="center">The412Banner Nightly Repo for Winlator Emulation</h3>
