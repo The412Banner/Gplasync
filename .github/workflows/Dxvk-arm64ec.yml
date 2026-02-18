@@ -1,108 +1,156 @@
-name: DXVK GPLAsync ARM64EC WCP Builder
+name: DXVK ARM64EC (GPLAsync)
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "DXVK Version (Tag/Branch)"
-        default: "main"
-      device_name:
-        description: "Name for the WCP (e.g. Adreno, Turnip)"
-        default: "Generic"
+  workflow_dispatch:  # Allows manual triggering
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 4 * * *' # Optional: Runs daily at 4am UTC (Nightly)
 
 jobs:
-  build-wcp:
-    name: Build Winlator WCP
-    runs-on: ubuntu-latest
-    
+  build:
+    runs-on: ubuntu-24.04
     steps:
-      - name: Checkout Source
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build git wget tar
+          sudo apt-get install -y \
+            ca-certificates curl xz-utils jq git build-essential \
+            python3 pkg-config zstd meson ninja-build wget unzip
 
-      # ---------------------------------------------------------
-      # 1. SETUP TOOLCHAIN (LLVM-MinGW)
-      # ---------------------------------------------------------
-      - name: Setup LLVM-MinGW Toolchain
+      - name: Setup Glslang
         run: |
-          # Download llvm-mingw (capable of arm64ec)
-          wget https://github.com/mstorsjo/llvm-mingw/releases/download/20241217/llvm-mingw-20241217-ucrt-ubuntu-20.04-x86_64.tar.xz
-          tar -xf llvm-mingw-*.tar.xz
-          echo "$(pwd)/llvm-mingw-20241217-ucrt-ubuntu-20.04-x86_64/bin" >> $GITHUB_PATH
+          wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
+          unzip -q glslang-master-linux-Release.zip -d glslang
+          # Add to system PATH for subsequent steps
+          echo "$PWD/glslang/bin" >> $GITHUB_PATH
 
-      # ---------------------------------------------------------
-      # 2. CLONE DXVK-GPLASYNC
-      # ---------------------------------------------------------
-      - name: Clone DXVK GPLAsync
+      - name: Setup LLVM-MinGW
         run: |
-          git clone https://gitlab.com/Ph42oN/dxvk-gplasync.git dxvk_src
-          cd dxvk_src
-          if [ "${{ inputs.version }}" != "main" ]; then
-             git checkout "${{ inputs.version }}" || echo "Version not found, defaulting to main."
-          fi
+          LLVM_MINGW_TAG="20251104"
+          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
+          tar -xf llvm.tar.xz
+          # Add to system PATH for subsequent steps
+          echo "$PWD/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
 
-      # ---------------------------------------------------------
-      # 3. BUILD ARM64EC (FIXED)
-      # ---------------------------------------------------------
-      - name: Configure & Build
+      - name: Clone & Patch DXVK
         run: |
-          # Create Cross File for ARM64EC
-          cat <<EOF > cross-arm64ec.txt
+          git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
+          cd dxvk
+          
+          # Versioning
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          VERSION_NAME="${LATEST_TAG}-ARM64EC-${COMMIT_HASH}"
+          
+          # Save variables to GitHub Environment
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+          
+          # Apply GPLAsync Patch
+          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
+          git apply dxvk-gplasync-master.patch
+
+      - name: Configure Cross-Files
+        run: |
+          # Create arm64ec.txt
+          cat <<EOF > arm64ec.txt
           [binaries]
           c = 'arm64ec-w64-mingw32-clang'
           cpp = 'arm64ec-w64-mingw32-clang++'
-          ar = 'arm64ec-w64-mingw32-ar'
-          strip = 'arm64ec-w64-mingw32-strip'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
           windres = 'arm64ec-w64-mingw32-windres'
-          exe_wrapper = 'wine'
+          widl = 'arm64ec-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
           [host_machine]
           system = 'windows'
           cpu_family = 'aarch64'
-          cpu = 'arm64ec'
+          cpu = 'aarch64'
           endian = 'little'
           EOF
 
-          # Build (Fixed Order: build_dir source_dir flags)
-          meson setup dxvk_src/build dxvk_src \
-            --cross-file cross-arm64ec.txt \
-            --buildtype release \
-            --prefix "$(pwd)/staging" \
-            --strip
-            
-          ninja -C dxvk_src/build
-          meson install -C dxvk_src/build
-
-      # ---------------------------------------------------------
-      # 4. PACKAGE INTO .WCP
-      # ---------------------------------------------------------
-      - name: Create WCP Package
-        run: |
-          # 1. Create structure
-          mkdir -p WCP_ROOT/system32
-          
-          # 2. Copy compiled DLLs to system32 (ARM64EC goes here)
-          cp staging/bin/*.dll WCP_ROOT/system32/
-          
-          # 3. Create profile.json (Manifest)
-          cat <<EOF > WCP_ROOT/profile.json
-          {
-            "name": "DXVK GPLAsync ${{ inputs.version }} (ARM64EC)",
-            "version": "${{ inputs.version }}",
-            "author": "GitHub Actions",
-            "description": "Custom build for ${{ inputs.device_name }}. Includes GPLAsync patches."
-          }
+          # Create x86.txt (for SysWoW64)
+          cat <<EOF > x86.txt
+          [binaries]
+          c = 'i686-w64-mingw32-clang'
+          cpp = 'i686-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'i686-w64-mingw32-windres'
+          widl = 'i686-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
           EOF
 
-          # 4. Compress to .tar.xz and rename to .wcp
-          cd WCP_ROOT
-          tar -cJf ../dxvk-gplasync-arm64ec.wcp *
+      - name: Build
+        run: |
+          cd dxvk
+          # Configure
+          meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
+          meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
+          
+          # Build (parallel)
+          ninja -C build-ec -j 2
+          ninja -C build-x86 -j 2
 
-      - name: Upload WCP
+      - name: Package
+        run: |
+          mkdir -p packaging/system32
+          mkdir -p packaging/syswow64
+          
+          # Copy DLLs (ARM64EC -> System32, x86 -> SysWoW64)
+          cp dxvk/build-ec/src/d3d11/d3d11.dll packaging/system32/
+          cp dxvk/build-ec/src/d3d10/d3d10core.dll packaging/system32/
+          cp dxvk/build-ec/src/d3d9/d3d9.dll packaging/system32/
+          cp dxvk/build-ec/src/dxgi/dxgi.dll packaging/system32/
+          
+          cp dxvk/build-x86/src/d3d11/d3d11.dll packaging/syswow64/
+          cp dxvk/build-x86/src/d3d10/d3d10core.dll packaging/syswow64/
+          cp dxvk/build-x86/src/d3d9/d3d9.dll packaging/syswow64/
+          cp dxvk/build-x86/src/dxgi/dxgi.dll packaging/syswow64/
+          
+          # Strip Debug Symbols
+          llvm-strip --strip-all packaging/system32/*.dll
+          llvm-strip --strip-all packaging/syswow64/*.dll
+
+          # Generate Profile.json for Winlator
+          BUILD_DATE=$(date +'%Y-%m-%d')
+          cat <<EOF > packaging/profile.json
+          {
+            "type": "DXVK",
+            "versionName": "${{ env.VERSION_NAME }}",
+            "versionCode": 1,
+            "description": "DXVK ARM64EC (GPLAsync)\nCommit: ${{ env.COMMIT_HASH }}\nDate: ${BUILD_DATE}",
+            "author": "Doitsujin / Ph42oN / Gemini",
+            "files": [
+              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
+              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
+              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
+              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
+              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
+              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
+              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
+              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
+            ]
+          }
+          EOF
+          
+          # Compress to WCP (using zstd)
+          cd packaging
+          tar --zstd -cf ../DXVK-ARM64EC-${{ env.VERSION_NAME }}.wcp *
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DXVK-GPLAsync-ARM64EC-WCP
-          path: dxvk-gplasync-arm64ec.wcp
+          name: DXVK-ARM64EC-${{ env.VERSION_NAME }}
+          path: ./*.wcp
+          
