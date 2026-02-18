@@ -25,23 +25,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 1. Get Upstream Commit (Short)
           UPSTREAM_COMMIT=$(git ls-remote https://github.com/ptitSeb/box64 HEAD | awk '{print $1}' | cut -c1-7)
           echo "CURRENT_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
           
-          # 2. Get Latest Release Body
           LAST_BODY=$(gh release view --json body -q .body 2>/dev/null || echo "")
           
-          # 3. Smart Check
           if [[ "$LAST_BODY" == *"$UPSTREAM_COMMIT"* ]]; then
             echo "✅ No updates found. Skipping build."
             echo "SKIP_BUILD=true" >> $GITHUB_ENV
-            
-            # Download old artifact
             mkdir -p build
             gh release download --pattern "box64-*.wcp" --dir build
             
-            # Extract Version from Release Body for the new table
             OLD_VER=$(echo "$LAST_BODY" | grep "$UPSTREAM_COMMIT" | sed -n 's/.*\[\(.*\)\].*/\1/p')
             echo "FINAL_VERSION=$OLD_VER" >> $GITHUB_ENV
             echo "FINAL_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
@@ -79,7 +73,6 @@ jobs:
           COMMIT=$(git rev-parse --short HEAD)
           FULL_V="${VERSION}-${COMMIT}-nightly"
           
-          # Set Env for Export
           echo "FINAL_VERSION=$FULL_V" >> $GITHUB_ENV
           echo "FINAL_COMMIT=$COMMIT" >> $GITHUB_ENV
           
@@ -221,10 +214,8 @@ jobs:
             mkdir final_package
             gh release download --pattern "FEX-*.wcp" --dir final_package
             
-            # Since FEX name varies, we glob it
             cd final_package
             EXISTING_FILE=$(ls FEX-*.wcp | head -n 1)
-            # Re-upload needs it to be in the root or path matched
             mv "$EXISTING_FILE" ..
             
             OLD_VER=$(echo "$LAST_BODY" | grep "$UPSTREAM_COMMIT" | sed -n 's/.*\[\(.*\)\].*/\1/p')
@@ -247,12 +238,10 @@ jobs:
       - name: Setup Toolchain
         if: env.SKIP_BUILD != 'true'
         run: |
-          # GLSLANG
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
           echo "$PWD/glslang/bin" >> $GITHUB_PATH
           
-          # LLVM-MINGW
           LLVM_MINGW_TAG="20251104"
           TOOLCHAIN_DIR="/opt/llvm-mingw"
           wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
@@ -355,7 +344,7 @@ jobs:
             mkdir final_package
             gh release download --pattern "VKD3D-Proton-3.0b*.wcp" --dir final_package
             cd final_package
-            # Must exclude arm64ec file if it matches pattern
+            # Exclude ARM64EC to avoid grabbing the wrong file
             FILE=$(ls VKD3D-Proton-3.0b*.wcp | grep -v "ARM64EC" | head -n 1)
             mv "$FILE" ..
             
@@ -521,7 +510,9 @@ jobs:
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
-          echo "$PWD/glslang/bin" >> $GITHUB_PATH
+          
+          # FIX: Export PATH locally so this script sees it immediately
+          export PATH=$PWD/glslang/bin:$PATH
           
           git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
           cd dxvk
@@ -534,6 +525,8 @@ jobs:
           wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
           git apply dxvk-gplasync-master.patch
           sed -i 's/ninja/ninja -j 2/g' package-release.sh
+          
+          # Run build script (will now find glslangValidator)
           ./package-release.sh master ../dxvk-built --no-package
           cd ..
 
@@ -602,7 +595,6 @@ jobs:
             FILE=$(ls VKD3D-Proton-arm64ec-3.0b*.wcp | head -n 1)
             mv "$FILE" ..
             
-            # Use grep to find the specific ARM64EC line in body
             OLD_VER=$(echo "$LAST_BODY" | grep "ARM64EC" | grep "$UPSTREAM_COMMIT" | sed -n 's/.*\[\(.*\)\].*/\1/p')
             echo "FINAL_VERSION=$OLD_VER" >> $GITHUB_ENV
             echo "FINAL_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
