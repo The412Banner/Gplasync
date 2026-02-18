@@ -1,55 +1,64 @@
-name: DXVK GPLAsync ARM64EC (WCP)
+name: DXVK GPLAsync ARM64EC WCP Builder
 
 on:
   workflow_dispatch:
     inputs:
-      repository:
-        description: 'Repository URL'
-        required: true
-        default: 'https://gitlab.com/Ph42oN/dxvk-gplasync.git'
-      ref:
-        description: 'Branch or Tag (e.g., master, v2.7.1)'
-        required: true
-        default: 'master'
-      package_name:
-        description: 'Name of the output package (without extension)'
-        required: true
-        default: 'dxvk-gplasync-arm64ec'
+      version:
+        description: "DXVK Version (Tag/Branch)"
+        default: "main"
+      device_name:
+        description: "Name for the WCP (e.g. Adreno, Turnip)"
+        default: "Generic"
 
 jobs:
-  build-arm64ec:
+  build-wcp:
+    name: Build Winlator WCP
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Code
-        run: |
-          git clone --recursive ${{ inputs.repository }} dxvk
-          cd dxvk
-          git checkout ${{ inputs.ref }}
+      - name: Checkout Source
+        uses: actions/checkout@v4
 
-      - name: Install Build Dependencies
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build glslang-tools curl tar zstd
+          sudo apt-get install -y meson ninja-build git wget tar
 
-      - name: Setup LLVM-MinGW (ARM64EC Support)
+      # ---------------------------------------------------------
+      # 1. SETUP TOOLCHAIN (LLVM-MinGW)
+      # ---------------------------------------------------------
+      - name: Setup LLVM-MinGW Toolchain
         run: |
-          # We need LLVM-MinGW because standard GCC MinGW doesn't support ARM64EC well yet.
-          # Downloading a known stable release.
-          curl -L -o llvm-mingw.tar.xz https://github.com/mstorsjo/llvm-mingw/releases/download/20240903/llvm-mingw-20240903-ucrt-ubuntu-20.04-x86_64.tar.xz
-          tar -xf llvm-mingw.tar.xz
-          mv llvm-mingw-20240903-ucrt-ubuntu-20.04-x86_64 llvm-mingw
-          echo "$(pwd)/llvm-mingw/bin" >> $GITHUB_PATH
+          # Download llvm-mingw (capable of arm64ec)
+          wget https://github.com/mstorsjo/llvm-mingw/releases/download/20241217/llvm-mingw-20241217-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-*.tar.xz
+          echo "$(pwd)/llvm-mingw-20241217-ucrt-ubuntu-20.04-x86_64/bin" >> $GITHUB_PATH
 
-      - name: Generate Cross-File
-        working-directory: dxvk
+      # ---------------------------------------------------------
+      # 2. CLONE DXVK-GPLASYNC
+      # ---------------------------------------------------------
+      - name: Clone DXVK GPLAsync
         run: |
-          cat <<EOF > build-arm64ec.txt
+          git clone https://gitlab.com/Ph42oN/dxvk-gplasync.git dxvk_src
+          cd dxvk_src
+          if [ "${{ inputs.version }}" != "main" ]; then
+             git checkout "${{ inputs.version }}" || echo "Version not found, defaulting to main."
+          fi
+
+      # ---------------------------------------------------------
+      # 3. BUILD ARM64EC
+      # ---------------------------------------------------------
+      - name: Configure & Build
+        run: |
+          # Create Cross File for ARM64EC
+          cat <<EOF > cross-arm64ec.txt
           [binaries]
-          c = 'aarch64-w64-mingw32-clang'
-          cpp = 'aarch64-w64-mingw32-clang++'
-          ar = 'aarch64-w64-mingw32-ar'
-          strip = 'aarch64-w64-mingw32-strip'
-          windres = 'aarch64-w64-mingw32-windres'
+          c = 'arm64ec-w64-mingw32-clang'
+          cpp = 'arm64ec-w64-mingw32-clang++'
+          ar = 'arm64ec-w64-mingw32-ar'
+          strip = 'arm64ec-w64-mingw32-strip'
+          windres = 'arm64ec-w64-mingw32-windres'
+          exe_wrapper = 'wine'
           [host_machine]
           system = 'windows'
           cpu_family = 'aarch64'
@@ -57,37 +66,45 @@ jobs:
           endian = 'little'
           EOF
 
-      - name: Configure Meson
-        working-directory: dxvk
-        run: |
-          meson setup build-arm64ec \
-            --cross-file build-arm64ec.txt \
+          # Build
+          meson setup dxvk_src/build \
+            --cross-file cross-arm64ec.txt \
             --buildtype release \
+            --prefix "$(pwd)/staging" \
             --strip \
-            -Ddxvk_native=false
+            dxvk_src
+            
+          ninja -C dxvk_src/build
+          meson install -C dxvk_src/build
 
-      - name: Build DXVK
-        working-directory: dxvk
-        run: ninja -C build-arm64ec
-
-      - name: Package WCP (Winlator Structure)
-        working-directory: dxvk
+      # ---------------------------------------------------------
+      # 4. PACKAGE INTO .WCP
+      # ---------------------------------------------------------
+      - name: Create WCP Package
         run: |
-          # Winlator expects x64 binaries in an 'x64' folder
-          mkdir -p package/x64
+          # 1. Create structure
+          mkdir -p WCP_ROOT/system32
+          
+          # 2. Copy compiled DLLs to system32 (ARM64EC goes here)
+          cp staging/bin/*.dll WCP_ROOT/system32/
+          
+          # 3. Create profile.json (Manifest)
+          # This tells Winlator what this package is.
+          cat <<EOF > WCP_ROOT/profile.json
+          {
+            "name": "DXVK GPLAsync ${{ inputs.version }} (ARM64EC)",
+            "version": "${{ inputs.version }}",
+            "author": "GitHub Actions",
+            "description": "Custom build for ${{ inputs.device_name }}. Includes GPLAsync patches."
+          }
+          EOF
 
-          # Copy the ARM64EC DLLs into the x64 folder
-          # (Winlator uses these to emulate x64 on Snapdragon devices)
-          find build-arm64ec -name "*.dll" -exec cp {} package/x64/ \;
+          # 4. Compress to .tar.xz and rename to .wcp
+          cd WCP_ROOT
+          tar -cJf ../dxvk-gplasync-arm64ec.wcp *
 
-          # Create the .wcp file (which is just a zstd tarball)
-          # We force owner/group to 0 for Android compatibility
-          cd package
-          tar --zstd --owner=0 --group=0 -cf ../${{ inputs.package_name }}.wcp *
-
-      - name: Upload Artifact
+      - name: Upload WCP
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.package_name }}
-          path: dxvk/${{ inputs.package_name }}.wcp
-          
+          name: DXVK-GPLAsync-ARM64EC-WCP
+          path: dxvk-gplasync-arm64ec.wcp
