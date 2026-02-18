@@ -11,6 +11,13 @@ https://github.com/Arihany/WinlatorWCPHub
 > | [**Winlator-CMod**](https://github.com/coffincolors/winlator/releases) | Baseline Bionic build with excellent controller support. |
 > | [**Winlator-Ludashi**](https://github.com/StevenMXZ/Winlator-Ludashi/releases) | Keeps up with the latest upstream code while remaining close to vanilla. Great performance. |
 > | [**GameNative**](https://github.com/utkarshdalal/GameNative/releases) | Supports both glibc and bionic, featuring a sleek UI and Steam integration. |
+
+> | Gamehub Builds | 📖 |
+> |:-:|-|
+> | [**Official Gamehub**](https://gamehub.xiaoji.com/) | Original Gamehub released by Gamesir. |
+> | [**Official Gamehub Lite**](https://github.com/Producdevity/gamehub-lite/releases) | GameHub Lite is a community-maintained modified version of GameHub for education purposes. |
+> | [**Unofficial Gamehub Lite**](https://github.com/ItzDFPlayer/gamehub-lite) | This is a fork of the Official Gamehub Lite, updated to run off the Gamehub v5.3.5 build with features from their 5.3.3 Pre-release. |
+> | [**Gamehub Basil**](https://github.com/winlatorbrasil/gamehub-brasil/releases) | Brazilian fork of GameHub, adapted and maintained with a focus on performance, compatibility and accessibility. |
 > 
 >
 > ---
@@ -29,6 +36,7 @@ https://github.com/Arihany/WinlatorWCPHub
 | Link | 📖 |
 |:-:|-|
 | [**StevenMXZ**](https://github.com/StevenMXZ/freedreno_turnip-CI/releases) | Mesa Turnip driver |
+| [**StevenMXZ**](https://github.com/whitebelyash/freedreno_turnip-CI/releases) | Mesa Turnip driver |
 | [**K11MCH1**](https://github.com/K11MCH1/AdrenoToolsDrivers/releases) | Qualcomm proprietary driver + Mesa Turnip driver |
 | [**GameNative**](https://gamenative.app/drivers/) | Qualcomm proprietary driver + Mesa Turnip driver |
 | [**zoerakk**](https://github.com/zoerakk/qualcomm-adreno-driver/releases) | Qualcomm proprietary driver (ELITE) |
