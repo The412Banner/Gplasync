@@ -92,4 +92,7 @@ DXVK-GPLAsync Patch [Ph42oN](https://gitlab.com/Ph42oN)<br>
 VKD3D [Hans-Kristian Arntzen](https://github.com/HansKristian-Work)<br>
 Freedreno Turnip driver [Mesa](https://mesa3d.org/)
 
+Thanks also to Max and Nick for helping with workflows
+and to those I forget please just message me 🙏 
+
 </h4>
