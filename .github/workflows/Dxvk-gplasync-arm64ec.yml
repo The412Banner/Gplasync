@@ -1,0 +1,89 @@
+name: DXVK GPLAsync ARM64EC (WCP Builder)
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag/Branch to build (e.g., master, GPLALL-master-2.7.1)'
+        required: true
+        default: 'master'
+
+jobs:
+  build-wcp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          repository: Digger1955/dxvk-gplasync-lowlatency
+          ref: ${{ inputs.release_tag }}
+          submodules: recursive
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build glslang-tools curl
+
+      - name: Setup LLVM-MinGW (ARM64EC Support)
+        run: |
+          # Downloading LLVM-MinGW 20240903 which has robust ARM64EC support
+          curl -L -o llvm-mingw.tar.xz https://github.com/mstorsjo/llvm-mingw/releases/download/20240903/llvm-mingw-20240903-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw.tar.xz
+          mv llvm-mingw-20240903-ucrt-ubuntu-20.04-x86_64 llvm-mingw
+          echo "$(pwd)/llvm-mingw/bin" >> $GITHUB_PATH
+
+      - name: Configure DXVK (ARM64EC)
+        run: |
+          # Create cross-file specifically for ARM64EC
+          cat <<EOF > build-arm64ec.txt
+          [binaries]
+          c = 'aarch64-w64-mingw32-clang'
+          cpp = 'aarch64-w64-mingw32-clang++'
+          ar = 'aarch64-w64-mingw32-ar'
+          strip = 'aarch64-w64-mingw32-strip'
+          windres = 'aarch64-w64-mingw32-windres'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'aarch64'
+          cpu = 'arm64ec'
+          endian = 'little'
+          EOF
+
+          # Configure build with GPLAsync options
+          meson setup build-arm64ec \
+            --cross-file build-arm64ec.txt \
+            --buildtype release \
+            --strip \
+            -Ddxvk_native=false
+
+      - name: Build
+        run: ninja -C build-arm64ec
+
+      - name: Create WCP Package
+        run: |
+          # Define WCP Name
+          SHORT_HASH=$(git rev-parse --short HEAD)
+          WCP_NAME="DXVK-GPLAsync-2.7.1-ARM64EC-${SHORT_HASH}"
+          
+          # Winlator WCP Structure:
+          # Root
+          # └── x64 (Contains the ARM64EC dlls)
+          # (Note: Standard Winlator WCPs usually have x86/x64 folders. 
+          # Since this is an ARM64EC specific job, we place them in x64 
+          # so Winlator uses them for 64-bit processes).
+          
+          mkdir -p package/x64
+          
+          # Copy DLLs
+          find build-arm64ec -name "*.dll" -exec cp {} package/x64/ \;
+          
+          # Create .wcp (tar.zst)
+          # strict ownership 0:0 is often required for Android/Winlator
+          cd package
+          tar --zstd --owner=0 --group=0 -cf ../${WCP_NAME}.wcp *
+          
+      - name: Upload WCP
+        uses: actions/upload-artifact@v4
+        with:
+          name: DXVK-GPLAsync-WCP
+          path: *.wcp
+          compression-level: 0
