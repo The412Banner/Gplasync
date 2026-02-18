@@ -36,7 +36,7 @@ https://github.com/Arihany/WinlatorWCPHub
 | Link | 📖 |
 |:-:|-|
 | [**StevenMXZ**](https://github.com/StevenMXZ/freedreno_turnip-CI/releases) | Mesa Turnip driver |
-| [**StevenMXZ**](https://github.com/whitebelyash/freedreno_turnip-CI/releases) | Mesa Turnip driver |
+| [**whitebelyash**](https://github.com/whitebelyash/freedreno_turnip-CI/releases) | Mesa Turnip driver |
 | [**K11MCH1**](https://github.com/K11MCH1/AdrenoToolsDrivers/releases) | Qualcomm proprietary driver + Mesa Turnip driver |
 | [**GameNative**](https://gamenative.app/drivers/) | Qualcomm proprietary driver + Mesa Turnip driver |
 | [**zoerakk**](https://github.com/zoerakk/qualcomm-adreno-driver/releases) | Qualcomm proprietary driver (ELITE) |
