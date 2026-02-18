@@ -14,15 +14,50 @@ jobs:
   build-box64:
     name: Build Box64 (Native)
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.export.outputs.version }}
+      commit: ${{ steps.export.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
       
+      - name: Check for Updates
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 1. Get Upstream Commit (Short)
+          UPSTREAM_COMMIT=$(git ls-remote https://github.com/ptitSeb/box64 HEAD | awk '{print $1}' | cut -c1-7)
+          echo "CURRENT_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          
+          # 2. Get Latest Release Body
+          LAST_BODY=$(gh release view --json body -q .body 2>/dev/null || echo "")
+          
+          # 3. Smart Check
+          if [[ "$LAST_BODY" == *"$UPSTREAM_COMMIT"* ]]; then
+            echo "✅ No updates found. Skipping build."
+            echo "SKIP_BUILD=true" >> $GITHUB_ENV
+            
+            # Download old artifact
+            mkdir -p build
+            gh release download --pattern "box64-*.wcp" --dir build
+            
+            # Extract Version from Release Body for the new table
+            OLD_VER=$(echo "$LAST_BODY" | grep "$UPSTREAM_COMMIT" | sed -n 's/.*\[\(.*\)\].*/\1/p')
+            echo "FINAL_VERSION=$OLD_VER" >> $GITHUB_ENV
+            echo "FINAL_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          else
+            echo "🚀 New commit found ($UPSTREAM_COMMIT). Building..."
+            echo "SKIP_BUILD=false" >> $GITHUB_ENV
+          fi
+
       - name: Install Dependencies
+        if: env.SKIP_BUILD != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils
 
       - name: Setup Android NDK
+        if: env.SKIP_BUILD != 'true'
         run: |
           wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
           unzip -q android-ndk-r26b-linux.zip
@@ -30,9 +65,11 @@ jobs:
           echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" >> $GITHUB_ENV
 
       - name: Clone Box64
+        if: env.SKIP_BUILD != 'true'
         run: git clone https://github.com/ptitSeb/box64 source
 
-      - name: Get Version Info
+      - name: Configure, Build & Package
+        if: env.SKIP_BUILD != 'true'
         run: |
           cd source
           MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
@@ -41,22 +78,27 @@ jobs:
           VERSION="$MAJOR.$MINOR.$REVISION"
           COMMIT=$(git rev-parse --short HEAD)
           FULL_V="${VERSION}-${COMMIT}-nightly"
-          echo "FULL_VERSION=$FULL_V" >> $GITHUB_ENV
-
-      - name: Configure and Build
-        run: |
+          
+          # Set Env for Export
+          echo "FINAL_VERSION=$FULL_V" >> $GITHUB_ENV
+          echo "FINAL_COMMIT=$COMMIT" >> $GITHUB_ENV
+          
+          cd ..
           mkdir build && cd build
           cmake ../source \
             -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} \
             -DANDROID=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
           ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
+          
+          echo '{"type": "Box64", "versionName": "'"$FULL_V"'", "versionCode": 0, "description": "Box64-'"$FULL_V"'. Author: MaxsTechReview", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
+          tar -cJf "box64-$FULL_V.wcp" box64 profile.json
 
-      - name: Package
+      - name: Export Outputs
+        id: export
         run: |
-          cd build
-          echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
-          tar -cJf "box64-${{ env.FULL_VERSION }}.wcp" box64 profile.json
+          echo "version=${{ env.FINAL_VERSION }}" >> $GITHUB_OUTPUT
+          echo "commit=${{ env.FINAL_COMMIT }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,52 +111,83 @@ jobs:
   build-wowbox64:
     name: Build WOWBox64 (MinGW)
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.export.outputs.version }}
+      commit: ${{ steps.export.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for Updates
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_COMMIT=$(git ls-remote https://github.com/ptitSeb/box64 HEAD | awk '{print $1}' | cut -c1-7)
+          echo "CURRENT_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          LAST_BODY=$(gh release view --json body -q .body 2>/dev/null || echo "")
+          
+          if [[ "$LAST_BODY" == *"$UPSTREAM_COMMIT"* ]]; then
+            echo "✅ No updates found. Skipping build."
+            echo "SKIP_BUILD=true" >> $GITHUB_ENV
+            mkdir -p build/wowbox64-prefix/src/wowbox64-build
+            gh release download --pattern "WOWBox64-*.wcp" --dir build/wowbox64-prefix/src/wowbox64-build
+            
+            OLD_VER=$(echo "$LAST_BODY" | grep "$UPSTREAM_COMMIT" | sed -n 's/.*\[\(.*\)\].*/\1/p')
+            echo "FINAL_VERSION=$OLD_VER" >> $GITHUB_ENV
+            echo "FINAL_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          else
+            echo "🚀 New commit found. Building..."
+            echo "SKIP_BUILD=false" >> $GITHUB_ENV
+          fi
+
       - name: Install Dependencies
+        if: env.SKIP_BUILD != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y git cmake make python3 wget tar xz-utils
 
       - name: Setup Toolchain
+        if: env.SKIP_BUILD != 'true'
         run: |
           LLVM_MINGW_VERSION=20240619
           wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz
           tar -xf llvm-mingw-*.tar.xz
           echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV
 
-      - name: Clone and Patch
+      - name: Configure, Build & Package
+        if: env.SKIP_BUILD != 'true'
         run: |
           git clone https://github.com/ptitSeb/box64 source
           cd source
           echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); }' >> wine/common/crt.c
-
-      - name: Get Version Info
-        run: |
-          cd source
+          
           MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
           MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
           REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
           COMMIT=$(git rev-parse --short HEAD)
           FULL_V="$MAJOR.$MINOR.$REVISION-${COMMIT}-nightly"
-          echo "FULL_VERSION=$FULL_V" >> $GITHUB_ENV
-
-      - name: Configure and Build
-        run: |
+          
+          echo "FINAL_VERSION=$FULL_V" >> $GITHUB_ENV
+          echo "FINAL_COMMIT=$COMMIT" >> $GITHUB_ENV
+          
           export PATH=$PATH:${{ env.MINGW_PATH }}
+          cd ..
           mkdir build && cd build
           cmake ../source \
             -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc \
             -DWOW64=1 -DARM_DYNAREC=1 -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc) wowbox64
 
-      - name: Package
-        run: |
-          cd build/wowbox64-prefix/src/wowbox64-build
-          echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
+          cd wowbox64-prefix/src/wowbox64-build
+          echo '{"type": "WOWBox64", "versionName": "'"$FULL_V"'", "versionCode": 0, "description": "WOWBox64-'"$FULL_V"'. Author: MaxsTechReview", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
           mkdir -p system32 && cp wowbox64.dll system32/
-          tar -cJf "WOWBox64-${{ env.FULL_VERSION }}.wcp" system32 profile.json
+          tar -cJf "WOWBox64-$FULL_V.wcp" system32 profile.json
+
+      - name: Export Outputs
+        id: export
+        run: |
+          echo "version=${{ env.FINAL_VERSION }}" >> $GITHUB_OUTPUT
+          echo "commit=${{ env.FINAL_COMMIT }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
@@ -127,8 +200,43 @@ jobs:
   build-fex:
     name: Build FEXCore
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.export.outputs.version }}
+      commit: ${{ steps.export.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Updates
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_COMMIT=$(git ls-remote https://github.com/FEX-Emu/FEX HEAD | awk '{print $1}' | cut -c1-7)
+          echo "CURRENT_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          LAST_BODY=$(gh release view --json body -q .body 2>/dev/null || echo "")
+          
+          if [[ "$LAST_BODY" == *"$UPSTREAM_COMMIT"* ]]; then
+            echo "✅ No updates found. Skipping build."
+            echo "SKIP_BUILD=true" >> $GITHUB_ENV
+            mkdir final_package
+            gh release download --pattern "FEX-*.wcp" --dir final_package
+            
+            # Since FEX name varies, we glob it
+            cd final_package
+            EXISTING_FILE=$(ls FEX-*.wcp | head -n 1)
+            # Re-upload needs it to be in the root or path matched
+            mv "$EXISTING_FILE" ..
+            
+            OLD_VER=$(echo "$LAST_BODY" | grep "$UPSTREAM_COMMIT" | sed -n 's/.*\[\(.*\)\].*/\1/p')
+            echo "FINAL_VERSION=$OLD_VER" >> $GITHUB_ENV
+            echo "FINAL_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          else
+            echo "🚀 New commit found. Building..."
+            echo "SKIP_BUILD=false" >> $GITHUB_ENV
+          fi
+
       - name: Install Dependencies
+        if: env.SKIP_BUILD != 'true'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --no-install-recommends \
@@ -136,14 +244,15 @@ jobs:
             build-essential python3 pkg-config cmake zstd \
             dos2unix perl tar unzip meson ninja-build wget
 
-      - name: Setup GLSLANG
+      - name: Setup Toolchain
+        if: env.SKIP_BUILD != 'true'
         run: |
+          # GLSLANG
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
           echo "$PWD/glslang/bin" >> $GITHUB_PATH
-
-      - name: Setup Toolchain
-        run: |
+          
+          # LLVM-MINGW
           LLVM_MINGW_TAG="20251104"
           TOOLCHAIN_DIR="/opt/llvm-mingw"
           wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
@@ -151,41 +260,34 @@ jobs:
           sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
           echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
 
-      - name: Build FEX
+      - name: Build & Package
+        if: env.SKIP_BUILD != 'true'
         run: |
           git clone --recursive https://github.com/FEX-Emu/FEX.git source
           cd source
-          
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
           COMMIT_HASH=$(git rev-parse --short HEAD)
           VERSION_NAME="${LATEST_TAG}-Nightly-${COMMIT_HASH}"
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
-
+          echo "FINAL_VERSION=${VERSION_NAME}" >> $GITHUB_ENV
+          echo "FINAL_COMMIT=${COMMIT_HASH}" >> $GITHUB_ENV
+          
           build_arch() {
-            local triple="$1"
-            local dest="$2"
-            local build_dir="build-${triple}"
-            
+            local triple="$1"; local dest="$2"; local build_dir="build-${triple}"
             rm -rf "$build_dir" && mkdir "$build_dir" && cd "$build_dir"
             cmake -G Ninja -Wno-dev \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_TOOLCHAIN_FILE=../Data/CMake/toolchain_mingw.cmake \
               -DMINGW_TRIPLE="${triple}-w64-mingw32" \
-              -DCMAKE_INSTALL_PREFIX=/usr \
-              -DCMAKE_INSTALL_LIBDIR=/usr/lib/wine/aarch64-windows \
-              -DENABLE_JEMALLOC_GLIBC_ALLOC=False \
-              -DENABLE_LTO=False -DENABLE_ASSERTIONS=False -DBUILD_TESTING=False \
+              -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=/usr/lib/wine/aarch64-windows \
+              -DENABLE_JEMALLOC_GLIBC_ALLOC=False -DENABLE_LTO=False -DENABLE_ASSERTIONS=False -DBUILD_TESTING=False \
               ..
-            ninja -j 2
-            DESTDIR="$dest" ninja install
+            ninja -j 2 && DESTDIR="$dest" ninja install
             cd ..
           }
-
           build_arch "arm64ec" "../../stage-ec"
           build_arch "aarch64" "../../stage-wo"
+          cd ..
 
-      - name: Package
-        run: |
           rm -rf final_package && mkdir -p final_package/system32
           DLL_EC=$(find stage-ec -type f -name '*.dll' | head -n 1)
           DLL_WOW=$(find stage-wo -type f -name '*.dll' | head -n 1)
@@ -202,9 +304,9 @@ jobs:
           cat <<EOF > final_package/profile.json
           {
             "type": "FEXCore",
-            "versionName": "${{ env.VERSION_NAME }}",
+            "versionName": "${VERSION_NAME}",
             "versionCode": ${{ github.run_number }},
-            "description": "FEXCore Nightly\n${{ env.VERSION_NAME }}",
+            "description": "FEXCore Nightly\n${VERSION_NAME}",
             "author": "FEX-Emu / Gemini",
             "files": [
               { "source": "system32/libarm64ecfex.dll", "target": "\${system32}/libarm64ecfex.dll" },
@@ -212,9 +314,14 @@ jobs:
             ]
           }
           EOF
-          
           cd final_package
-          tar -cJf ../${{ env.VERSION_NAME }}.wcp .
+          tar -cJf ../${VERSION_NAME}.wcp .
+
+      - name: Export Outputs
+        id: export
+        run: |
+          echo "version=${{ env.FINAL_VERSION }}" >> $GITHUB_OUTPUT
+          echo "commit=${{ env.FINAL_COMMIT }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
@@ -227,8 +334,41 @@ jobs:
   build-vkd3d:
     name: Build VKD3D-Proton (Standard)
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.export.outputs.version }}
+      commit: ${{ steps.export.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Updates
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_COMMIT=$(git ls-remote https://github.com/HansKristian-Work/vkd3d-proton HEAD | awk '{print $1}' | cut -c1-7)
+          echo "CURRENT_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          LAST_BODY=$(gh release view --json body -q .body 2>/dev/null || echo "")
+          
+          if [[ "$LAST_BODY" == *"$UPSTREAM_COMMIT"* ]]; then
+            echo "✅ No updates found. Skipping build."
+            echo "SKIP_BUILD=true" >> $GITHUB_ENV
+            mkdir final_package
+            gh release download --pattern "VKD3D-Proton-3.0b*.wcp" --dir final_package
+            cd final_package
+            # Must exclude arm64ec file if it matches pattern
+            FILE=$(ls VKD3D-Proton-3.0b*.wcp | grep -v "ARM64EC" | head -n 1)
+            mv "$FILE" ..
+            
+            OLD_VER=$(echo "$LAST_BODY" | grep "$UPSTREAM_COMMIT" | head -n 1 | sed -n 's/.*\[\(.*\)\].*/\1/p')
+            echo "FINAL_VERSION=$OLD_VER" >> $GITHUB_ENV
+            echo "FINAL_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          else
+            echo "🚀 New commit found. Building..."
+            echo "SKIP_BUILD=false" >> $GITHUB_ENV
+          fi
+
       - name: Install Dependencies
+        if: env.SKIP_BUILD != 'true'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --no-install-recommends \
@@ -236,14 +376,13 @@ jobs:
             build-essential python3 pkg-config zstd \
             meson ninja-build wget unzip
 
-      - name: Setup GLSLANG
+      - name: Setup Toolchain
+        if: env.SKIP_BUILD != 'true'
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
           echo "$PWD/glslang/bin" >> $GITHUB_PATH
-
-      - name: Setup Toolchain
-        run: |
+          
           LLVM_MINGW_TAG="20251104"
           TOOLCHAIN_DIR="/opt/llvm-mingw"
           wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
@@ -251,17 +390,17 @@ jobs:
           sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
           echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
 
-      - name: Build VKD3D
+      - name: Build & Package
+        if: env.SKIP_BUILD != 'true'
         run: |
           git clone --recursive https://github.com/HansKristian-Work/vkd3d-proton src
           cd src
           COMMIT_HASH=$(git rev-parse --short HEAD)
           VERSION_NAME="3.0b-${COMMIT_HASH}"
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
-          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+          echo "FINAL_VERSION=${VERSION_NAME}" >> $GITHUB_ENV
+          echo "FINAL_COMMIT=${COMMIT_HASH}" >> $GITHUB_ENV
           cd ..
 
-          # Cross-files
           cat <<EOF > cross-x64.txt
           [binaries]
           c = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-clang'
@@ -301,11 +440,9 @@ jobs:
           ninja -C build-x64 -j 2
           meson setup build-x86 --cross-file ../cross-x86.txt -Dbuildtype=release -Dstrip=true
           ninja -C build-x86 -j 2
-
-      - name: Package
-        run: |
-          rm -rf final_package && mkdir -p final_package/system32 final_package/syswow64
+          cd ..
           
+          rm -rf final_package && mkdir -p final_package/system32 final_package/syswow64
           find src/build-x64 -name "d3d12.dll" -exec cp -L {} final_package/system32/ \;
           find src/build-x64 -name "d3d12core.dll" -exec cp -L {} final_package/system32/ \;
           find src/build-x86 -name "d3d12.dll" -exec cp -L {} final_package/syswow64/ \;
@@ -314,9 +451,9 @@ jobs:
           cat <<EOF > final_package/profile.json
           {
             "type": "VKD3D",
-            "versionName": "${{ env.VERSION_NAME }}",
+            "versionName": "${VERSION_NAME}",
             "versionCode": 1,
-            "description": "${{ env.COMMIT_HASH }}",
+            "description": "${COMMIT_HASH}",
             "files": [
               {"source": "system32/d3d12.dll", "target": "\${system32}/d3d12.dll"},
               {"source": "system32/d3d12core.dll", "target": "\${system32}/d3d12core.dll"},
@@ -325,9 +462,14 @@ jobs:
             ]
           }
           EOF
-          
           cd final_package
-          tar -cJf ../VKD3D-Proton-${{ env.VERSION_NAME }}.wcp *
+          tar -cJf ../VKD3D-Proton-${VERSION_NAME}.wcp *
+
+      - name: Export Outputs
+        id: export
+        run: |
+          echo "version=${{ env.FINAL_VERSION }}" >> $GITHUB_OUTPUT
+          echo "commit=${{ env.FINAL_COMMIT }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
@@ -340,38 +482,61 @@ jobs:
   build-dxvk:
     name: Build DXVK (GPLAsync)
     runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.export.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Updates
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_COMMIT=$(git ls-remote https://github.com/doitsujin/dxvk HEAD | awk '{print $1}' | cut -c1-7)
+          echo "CURRENT_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          LAST_BODY=$(gh release view --json body -q .body 2>/dev/null || echo "")
+          
+          if [[ "$LAST_BODY" == *"$UPSTREAM_COMMIT"* ]]; then
+            echo "✅ No updates found. Skipping build."
+            echo "SKIP_BUILD=true" >> $GITHUB_ENV
+            mkdir packaging
+            gh release download --pattern "dxvk-gplasync-*.wcp" --dir packaging
+            cd packaging
+            FILE=$(ls dxvk-gplasync-*.wcp | head -n 1)
+            mv "$FILE" ..
+            echo "FINAL_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          else
+            echo "🚀 New commit found. Building..."
+            echo "SKIP_BUILD=false" >> $GITHUB_ENV
+          fi
+
       - name: Install Dependencies
+        if: env.SKIP_BUILD != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y mingw-w64 wget git xz-utils python3 meson ninja-build build-essential unzip
 
-      - name: Setup GLSLANG
+      - name: Build & Package
+        if: env.SKIP_BUILD != 'true'
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
           echo "$PWD/glslang/bin" >> $GITHUB_PATH
-
-      - name: Build DXVK
-        run: |
+          
           git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
           cd dxvk
-          
           git fetch --tags
           LATEST_TAG=$(git describe --tags --abbrev=0)
           COMMIT_HASH=$(git rev-parse --short HEAD)
           VERSION_NAME="${LATEST_TAG}-gplasync-${COMMIT_HASH}"
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
-          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+          echo "FINAL_COMMIT=${COMMIT_HASH}" >> $GITHUB_ENV
           
           wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
           git apply dxvk-gplasync-master.patch
-          
           sed -i 's/ninja/ninja -j 2/g' package-release.sh
           ./package-release.sh master ../dxvk-built --no-package
+          cd ..
 
-      - name: Package
-        run: |
           mkdir -p packaging
           cp -r dxvk-built/dxvk-master/x64 packaging/system32
           cp -r dxvk-built/dxvk-master/x32 packaging/syswow64
@@ -379,7 +544,7 @@ jobs:
           cat <<EOF > packaging/profile.json
           {
             "type": "DXVK",
-            "versionName": "${{ env.VERSION_NAME }}",
+            "versionName": "${VERSION_NAME}",
             "versionCode": 0,
             "description": "Built on the Winlator WCP Hub (Upstream: Philip Rebohle, Patch: Ph42oN)",
             "files": [
@@ -396,8 +561,11 @@ jobs:
             ]
           }
           EOF
-          
-          tar -cJf dxvk-gplasync-${{ env.COMMIT_HASH }}.wcp -C packaging .
+          tar -cJf dxvk-gplasync-${COMMIT_HASH}.wcp -C packaging .
+
+      - name: Export Outputs
+        id: export
+        run: echo "commit=${{ env.FINAL_COMMIT }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
@@ -410,8 +578,41 @@ jobs:
   build-vkd3d-arm64ec:
     name: Build VKD3D-Proton (ARM64EC)
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.export.outputs.version }}
+      commit: ${{ steps.export.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Updates
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_COMMIT=$(git ls-remote https://github.com/HansKristian-Work/vkd3d-proton HEAD | awk '{print $1}' | cut -c1-7)
+          echo "CURRENT_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          LAST_BODY=$(gh release view --json body -q .body 2>/dev/null || echo "")
+          
+          if [[ "$LAST_BODY" == *"$UPSTREAM_COMMIT"* ]]; then
+            echo "✅ No updates found. Skipping build."
+            echo "SKIP_BUILD=true" >> $GITHUB_ENV
+            mkdir final_package
+            gh release download --pattern "VKD3D-Proton-arm64ec-3.0b*.wcp" --dir final_package
+            cd final_package
+            FILE=$(ls VKD3D-Proton-arm64ec-3.0b*.wcp | head -n 1)
+            mv "$FILE" ..
+            
+            # Use grep to find the specific ARM64EC line in body
+            OLD_VER=$(echo "$LAST_BODY" | grep "ARM64EC" | grep "$UPSTREAM_COMMIT" | sed -n 's/.*\[\(.*\)\].*/\1/p')
+            echo "FINAL_VERSION=$OLD_VER" >> $GITHUB_ENV
+            echo "FINAL_COMMIT=$UPSTREAM_COMMIT" >> $GITHUB_ENV
+          else
+            echo "🚀 New commit found. Building..."
+            echo "SKIP_BUILD=false" >> $GITHUB_ENV
+          fi
+
       - name: Install Dependencies
+        if: env.SKIP_BUILD != 'true'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --no-install-recommends \
@@ -419,14 +620,13 @@ jobs:
             build-essential python3 pkg-config zstd \
             meson ninja-build wget unzip
 
-      - name: Setup GLSLANG
+      - name: Setup Toolchain
+        if: env.SKIP_BUILD != 'true'
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
           echo "$PWD/glslang/bin" >> $GITHUB_PATH
-
-      - name: Setup Toolchain
-        run: |
+          
           LLVM_MINGW_TAG="20251104"
           TOOLCHAIN_DIR="/opt/llvm-mingw"
           wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
@@ -434,14 +634,15 @@ jobs:
           sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
           echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
 
-      - name: Build ARM64EC
+      - name: Build & Package
+        if: env.SKIP_BUILD != 'true'
         run: |
           git clone --recursive https://github.com/HansKristian-Work/vkd3d-proton src
           cd src
           COMMIT_HASH=$(git rev-parse --short HEAD)
           VERSION_NAME="arm64ec-3.0b-${COMMIT_HASH}"
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
-          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+          echo "FINAL_VERSION=${VERSION_NAME}" >> $GITHUB_ENV
+          echo "FINAL_COMMIT=${COMMIT_HASH}" >> $GITHUB_ENV
           cd ..
 
           cat <<EOF > arm64ec.txt
@@ -459,7 +660,7 @@ jobs:
           cpu = 'aarch64'
           endian = 'little'
           EOF
-
+          
           cat <<EOF > x86.txt
           [binaries]
           c = 'i686-w64-mingw32-clang'
@@ -481,11 +682,9 @@ jobs:
           ninja -C build-ec -j 2
           meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
           ninja -C build-x86 -j 2
-
-      - name: Package
-        run: |
-          rm -rf final_package && mkdir -p final_package/system32 final_package/syswow64
+          cd ..
           
+          rm -rf final_package && mkdir -p final_package/system32 final_package/syswow64
           find src/build-ec -name "d3d12.dll" -exec cp -L {} final_package/system32/ \;
           find src/build-ec -name "d3d12core.dll" -exec cp -L {} final_package/system32/ \;
           find src/build-x86 -name "d3d12.dll" -exec cp -L {} final_package/syswow64/ \;
@@ -497,9 +696,9 @@ jobs:
           cat <<EOF > final_package/profile.json
           {
             "type": "VKD3D",
-            "versionName": "${{ env.VERSION_NAME }}",
+            "versionName": "${VERSION_NAME}",
             "versionCode": 1,
-            "description": "${{ env.COMMIT_HASH }}",
+            "description": "${COMMIT_HASH}",
             "files": [
               {"source": "system32/d3d12.dll", "target": "\${system32}/d3d12.dll"},
               {"source": "system32/d3d12core.dll", "target": "\${system32}/d3d12core.dll"},
@@ -508,9 +707,14 @@ jobs:
             ]
           }
           EOF
-
           cd final_package
-          tar --zstd -cf ../VKD3D-Proton-${{ env.VERSION_NAME }}.wcp *
+          tar --zstd -cf ../VKD3D-Proton-${VERSION_NAME}.wcp *
+
+      - name: Export Outputs
+        id: export
+        run: |
+          echo "version=${{ env.FINAL_VERSION }}" >> $GITHUB_OUTPUT
+          echo "commit=${{ env.FINAL_COMMIT }}" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
@@ -533,24 +737,42 @@ jobs:
           path: ./artifacts
           merge-multiple: true
 
-      - name: Generate Tag
+      - name: Generate Date Tag
         run: echo "TAG_NAME=nightly-$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG_NAME }}
           name: "Emulation Nightly: ${{ env.TAG_NAME }}"
           prerelease: false
           make_latest: true
-          files: ./artifacts/*.wcp
           body: |
             ### 🚀 Nightly Build: ${{ env.TAG_NAME }}
-            _Automatic build containing Box64, WOWBox64, FEXCore, VKD3D-Proton (Std/EC), and DXVK._
+            
+            | Component | Version / Commit |
+            | :--- | :--- |
+            | **Box64 (Native)** | [${{ needs.build-box64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }}) |
+            | **WOWBox64** | [${{ needs.build-wowbox64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }}) |
+            | **FEXCore** | [${{ needs.build-fex.outputs.version }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }}) |
+            | **VKD3D-Proton (Std)** | [${{ needs.build-vkd3d.outputs.version }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }}) |
+            | **VKD3D-Proton (ARM64EC)** | [${{ needs.build-vkd3d-arm64ec.outputs.version }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d-arm64ec.outputs.commit }}) |
+            | **DXVK (GPLAsync)** | [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }}) |
+            
+            ### 📦 Files Included
+            1. **Box64 Native**: `box64-*.wcp`
+            2. **WOWBox64**: `WOWBox64-*.wcp`
+            3. **FEXCore**: `FEX-*.wcp`
+            4. **VKD3D-Proton (Std)**: `VKD3D-Proton-3.0b*.wcp`
+            5. **VKD3D-Proton (ARM64EC)**: `VKD3D-Proton-arm64ec-3.0b*.wcp`
+            6. **DXVK**: `dxvk-gplasync-*.wcp`
+            
+            _These files are packaged for use with Winlator._
+          files: ./artifacts/*.wcp
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Cleanup Old Releases
+
+      - name: Cleanup Old Releases (Keep 5)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -559,3 +781,18 @@ jobs:
           | sort -r \
           | tail -n +6 \
           | xargs -I {} -r gh release delete {} --cleanup-tag -y
+
+  cleanup:
+    name: Cleanup Artifacts
+    runs-on: ubuntu-latest
+    needs: create-release
+    steps:
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            box64-native
+            wowbox64-mingw
+            fex-nightly
+            dxvk-nightly
+            vkd3d-standard
+            vkd3d-arm64ec
