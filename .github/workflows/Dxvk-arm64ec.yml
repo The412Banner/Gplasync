@@ -46,7 +46,7 @@ jobs:
           fi
 
       # ---------------------------------------------------------
-      # 3. BUILD ARM64EC
+      # 3. BUILD ARM64EC (FIXED)
       # ---------------------------------------------------------
       - name: Configure & Build
         run: |
@@ -66,13 +66,12 @@ jobs:
           endian = 'little'
           EOF
 
-          # Build
-          meson setup dxvk_src/build \
+          # Build (Fixed Order: build_dir source_dir flags)
+          meson setup dxvk_src/build dxvk_src \
             --cross-file cross-arm64ec.txt \
             --buildtype release \
             --prefix "$(pwd)/staging" \
-            --strip \
-            dxvk_src
+            --strip
             
           ninja -C dxvk_src/build
           meson install -C dxvk_src/build
@@ -89,7 +88,6 @@ jobs:
           cp staging/bin/*.dll WCP_ROOT/system32/
           
           # 3. Create profile.json (Manifest)
-          # This tells Winlator what this package is.
           cat <<EOF > WCP_ROOT/profile.json
           {
             "name": "DXVK GPLAsync ${{ inputs.version }} (ARM64EC)",
