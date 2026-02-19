@@ -1,0 +1,179 @@
+name: Box64 Dual-Source (Bionic)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 9 * * *' # Runs daily at 9 AM UTC
+
+jobs:
+  build-box64-matrix:
+    name: Build Box64 (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ----------------------------------------------------------------
+          # 1. Official Upstream (ptitSeb)
+          # ----------------------------------------------------------------
+          - name: "Official"
+            repo_url: "https://github.com/ptitSeb/box64"
+            branch: "main"
+            description: "Official Upstream"
+          
+          # ----------------------------------------------------------------
+          # 2. Custom Fork (Pipetto-crypto)
+          # ----------------------------------------------------------------
+          - name: "Pipetto"
+            repo_url: "https://github.com/Pipetto-crypto/box64" 
+            branch: "main"
+            description: "Pipetto-crypto Fork"
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils zip
+
+      - name: Setup Android NDK (r26b)
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+          # API 31 (Android 12) for Bionic optimization
+          echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang" >> $GITHUB_ENV
+
+      - name: Clone Repository (${{ matrix.name }})
+        run: |
+          git clone -b ${{ matrix.branch }} ${{ matrix.repo_url }} source
+
+      - name: Get Version Info
+        id: version
+        run: |
+          cd source
+          MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
+          MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
+          REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+          VERSION="$MAJOR.$MINOR.$REVISION"
+          COMMIT=$(git rev-parse --short HEAD)
+          
+          # Naming format: Box64-Pipetto-v0.3.2-a1b2c3-bionic
+          FULL_V="${{ matrix.name }}-${VERSION}-${COMMIT}-bionic"
+          
+          echo "FULL_VERSION=$FULL_V" >> $GITHUB_ENV
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+
+      - name: Configure and Build (Bionic Optimized)
+        run: |
+          mkdir build && cd build
+          
+          # Optimized Flags: BIONIC=1, NO TRACE, NO TERMUX, API 31
+          cmake ../source \
+            -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} \
+            -DANDROID=1 \
+            -DBIONIC=1 \
+            -DARM_DYNAREC=1 \
+            -DBAD_SIGNAL=1 \
+            -DTERMUX=0 \
+            -DHAVE_TRACE=0 \
+            -DCMAKE_BUILD_TYPE=Release
+            
+          make -j$(nproc)
+          
+          # Verification
+          readelf -d box64 | grep -q "NEEDED.*libc.so" || { echo "Linking failed!"; exit 1; }
+          
+          # Strip symbols
+          ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
+
+      - name: Package
+        run: |
+          cd build
+          
+          # Generate Winlator Profile
+          cat <<EOF > profile.json
+          {
+            "type": "Box64",
+            "versionName": "${{ env.FULL_VERSION }}",
+            "versionCode": 0,
+            "description": "Box64 ${{ matrix.name }} (Bionic)\nSource: ${{ matrix.repo_url }}\nCommit: ${{ steps.version.outputs.commit }}",
+            "files": [{"source": "box64", "target": "\${bindir}/box64"}]
+          }
+          EOF
+          
+          mkdir pkg_content
+          cp box64 pkg_content/
+          cp profile.json pkg_content/
+          
+          cd pkg_content
+          
+          # Create ZIP
+          zip -r "../Box64-${{ env.FULL_VERSION }}.zip" .
+          
+          # Create WCP
+          tar -cf ../temp.tar .
+          cd ..
+          mv temp.tar temp_archive
+          xz -9 -c temp_archive > "Box64-${{ env.FULL_VERSION }}.wcp"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box64-${{ matrix.name }}
+          path: |
+            build/*.wcp
+            build/*.zip
+
+  release:
+    name: Release Dual Build
+    runs-on: ubuntu-latest
+    needs: build-box64-matrix
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "box64-dual-$(date +'%Y-%m-%d')"
+          name: "Box64 Dual Source: $(date +'%Y-%m-%d')"
+          make_latest: true
+          body: |
+            ### 📦 Dual Source Build (Bionic Optimized)
+            This release contains Box64 builds from the Official repo and the Pipetto-crypto fork.
+            
+            | Variant | Description |
+            | :--- | :--- |
+            | **Official** | Built from `ptitSeb/box64` |
+            | **Pipetto** | Built from `Pipetto-crypto/box64` |
+            
+            _Both builds use Android 12 (API 31) Bionic optimizations._
+          files: |
+            ./artifacts/*.wcp
+            ./artifacts/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Notify Discord
+        uses: ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: '🚀 **Box64 Dual-Build Released!**\n\nOfficial & Pipetto builds are ready.\nDownload: https://github.com/${{ github.repository }}/releases/tag/box64-dual-$(date +'%Y-%m-%d')'
+
+      - name: Cleanup Old Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release list --limit 30 --json tagName,createdAt \
+          | jq -r '.[] | select(.tagName | startswith("box64-dual-")) | .tagName' \
+          | sort -r \
+          | tail -n +6 \
+          | xargs -I {} -r gh release delete {} --cleanup-tag -y
