@@ -12,6 +12,8 @@ Arihany repo can be found here:
 
 https://github.com/Arihany/WinlatorWCPHub 
 
+[![All-in-One Emulation Nightly](https://github.com/The412Banner/Nightlies/actions/workflows/new-All-in-one-nightly+zips.yml/badge.svg?branch=main)](https://github.com/The412Banner/Nightlies/actions/workflows/new-All-in-one-nightly+zips.yml)
+
 ---
 
 > | Bionic builds | 📖 |
