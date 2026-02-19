@@ -12,7 +12,39 @@ Arihany repo can be found here:
 
 https://github.com/Arihany/WinlatorWCPHub 
 
-[![All-in-One Emulation Nightly](https://github.com/The412Banner/Nightlies/actions/workflows/new-All-in-one-nightly+zips.yml/badge.svg?branch=main&event=schedule)](https://github.com/The412Banner/Nightlies/actions/workflows/new-All-in-one-nightly+zips.yml)
+---
+
+A very informative site to keep users up to date on emulators: 
+https://t3st31.github.io/Ranking-Emulators-Download/
+
+Anyone interested in Rooting and/or overclocking their Retroid Snapdragon 865 devices:
+https://github.com/The412Banner/Banners-No-PC-Retroid-Overclock
+
+My repo to help rooting your Ayaneo Konkr Pocket Fit:
+https://github.com/The412Banner/Ayaneo-PocketFit-tools
+
+---
+
+<h3 align="center">Emulation Discord Channels</h3>
+
+My discord channel here:
+https://discord.gg/n8S4G2WZQ4
+
+Ryan Retro Discord:
+https://discord.gg/9n6VUzv424
+
+Emugear International Discord:
+https://discord.gg/94PzWBsHHh
+
+MaxesTechReview Discord:
+https://discord.gg/9ySMdArY4s
+
+Emucore (Kimchi's Discord):
+https://discord.gg/ZmXUZybNpU
+
+Official Gamehub Lite (Emuready Discord)v
+https://discord.gg/emuready-1380826875961540648
+
 ---
 
 > | Bionic builds | 📖 |
