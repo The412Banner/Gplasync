@@ -15,12 +15,15 @@ https://github.com/Arihany/WinlatorWCPHub
 ---
 
 A very informative site to keep users up to date on emulators: 
+
 https://t3st31.github.io/Ranking-Emulators-Download/
 
-Anyone interested in Rooting and/or overclocking their Retroid Snapdragon 865 devices:
+Anyone interested in Rooting and/or overclocking their Retroid Snapdragon 865 devices: 
+
 https://github.com/The412Banner/Banners-No-PC-Retroid-Overclock
 
-My repo to help rooting your Ayaneo Konkr Pocket Fit:
+My repo to help rooting your Ayaneo Konkr Pocket Fit: 
+
 https://github.com/The412Banner/Ayaneo-PocketFit-tools
 
 ---
