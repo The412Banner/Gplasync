@@ -20,24 +20,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Dependencies
-        [span_1](start_span)run: sudo apt-get update && sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils zip[span_1](end_span)
+        run: sudo apt-get update && sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils zip
       
       - name: Setup Android NDK
         run: |
-          [span_2](start_span)wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip[span_2](end_span)
-          [span_3](start_span)unzip -q android-ndk-r26b-linux.zip[span_3](end_span)
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
           echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
           echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" >> $GITHUB_ENV
 
       - name: Clone & Merge
         run: |
-          [span_4](start_span)git clone https://github.com/ptitSeb/box64 source[span_4](end_span)
+          git clone https://github.com/ptitSeb/box64 source
           cd source
-          [span_5](start_span)git remote add pipetto https://github.com/Pipetto-crypto/box64[span_5](end_span)
-          [span_6](start_span)git fetch pipetto[span_6](end_span)
+          git remote add pipetto https://github.com/Pipetto-crypto/box64
+          git fetch pipetto
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
-          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; [span_7](start_span)}
+          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; }
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Get Version
@@ -45,30 +45,30 @@ jobs:
 
       - name: Build
         run: |
-          mkdir build && cd build[span_7](end_span)
-          [span_8](start_span)cmake ../source -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} -DANDROID=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DCMAKE_BUILD_TYPE=Release[span_8](end_span)
-          [span_9](start_span)make -j$(nproc)[span_9](end_span)
-          [span_10](start_span)${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64[span_10](end_span)
+          mkdir build && cd build
+          cmake ../source -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} -DANDROID=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
 
       - name: Package
         run: |
           cd build
           mkdir -p pkg_content
-          [span_11](start_span)echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64 Hybrid (Native)\nOfficial + Pipetto", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json[span_11](end_span)
+          echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64 Hybrid (Native)\nOfficial + Pipetto", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
           cp box64 pkg_content/
           cp profile.json pkg_content/
           cd pkg_content
-          [span_12](start_span)zip -r "../${{ env.FULL_VERSION }}.zip" .[span_12](end_span)
+          zip -r "../${{ env.FULL_VERSION }}.zip" .
           tar -cf ../temp.tar .
           cd ..
-          [span_13](start_span)mv temp.tar temp_archive[span_13](end_span)
-          [span_14](start_span)xz -9 -c temp_archive > "${{ env.FULL_VERSION }}.wcp"[span_14](end_span)
+          mv temp.tar temp_archive
+          xz -9 -c temp_archive > "${{ env.FULL_VERSION }}.wcp"
           rm temp_archive
 
       - uses: actions/upload-artifact@v4
         with:
           name: hybrid-native
-          [span_15](start_span)path: build/*.zip build/*.wcp[span_15](end_span)
+          path: build/*.zip build/*.wcp
 
   # ==================================================================
   # JOB 2: Box64 Hybrid (Bionic)
@@ -82,24 +82,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Dependencies
-        [span_16](start_span)run: sudo apt-get update && sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils zip[span_16](end_span)
+        run: sudo apt-get update && sudo apt-get install -y git Record cmake make python3 p7zip-full wget tar file unzip xz-utils zip
 
       - name: Setup Android NDK
         run: |
-          [span_17](start_span)wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip[span_17](end_span)
-          [span_18](start_span)unzip -q android-ndk-r26b-linux.zip[span_18](end_span)
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
           echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
           echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang" >> $GITHUB_ENV
 
       - name: Clone & Merge
         run: |
-          [span_19](start_span)git clone https://github.com/ptitSeb/box64 source[span_19](end_span)
+          git clone https://github.com/ptitSeb/box64 source
           cd source
-          [span_20](start_span)git remote add pipetto https://github.com/Pipetto-crypto/box64[span_20](end_span)
-          [span_21](start_span)git fetch pipetto[span_21](end_span)
+          git remote add pipetto https://github.com/Pipetto-crypto/box64
+          git fetch pipetto
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
-          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; [span_22](start_span)}
+          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; }
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Get Version
@@ -107,29 +107,29 @@ jobs:
 
       - name: Build
         run: |
-          mkdir build && cd build[span_22](end_span)
-          [span_23](start_span)cmake ../source -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} -DANDROID=1 -DBIONIC=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DTERMUX=0 -DHAVE_TRACE=0 -DCMAKE_BUILD_TYPE=Release[span_23](end_span)
-          [span_24](start_span)make -j$(nproc)[span_24](end_span)
-          [span_25](start_span)${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64[span_25](end_span)
+          mkdir build && cd build
+          cmake ../source -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} -DANDROID=1 -DBIONIC=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DTERMUX=0 -DHAVE_TRACE=0 -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
 
       - name: Package
         run: |
           cd build
           mkdir -p pkg_content
-          [span_26](start_span)echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64 Hybrid (Bionic)\nOfficial + Pipetto", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json[span_26](end_span)
+          echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64 Hybrid (Bionic)\nOfficial + Pipetto", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
           cp box64 pkg_content/
           cp profile.json pkg_content/
           cd pkg_content
-          [span_27](start_span)zip -r "../${{ env.FULL_VERSION }}.zip" .[span_27](end_span)
+          zip -r "../${{ env.FULL_VERSION }}.zip" .
           tar -cf ../temp.tar .
           cd ..
-          [span_28](start_span)mv temp.tar temp_archive[span_28](end_span)
-          [span_29](start_span)xz -9 -c temp_archive > "${{ env.FULL_VERSION }}.wcp"[span_29](end_span)
+          mv temp.tar temp_archive
+          xz -9 -c temp_archive > "${{ env.FULL_VERSION }}.wcp"
 
       - uses: actions/upload-artifact@v4
         with:
           name: hybrid-bionic
-          [span_30](start_span)path: build/*.zip build/*.wcp[span_30](end_span)
+          path: build/*.zip build/*.wcp
 
   # ==================================================================
   # JOB 3: WOWBox64 Hybrid (MinGW)
@@ -143,50 +143,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Dependencies
-        [span_31](start_span)run: sudo apt-get update && sudo apt-get install -y git cmake make python3 wget tar xz-utils zip[span_31](end_span)
+        run: sudo apt-get update && sudo apt-get install -y git cmake make python3 wget tar xz-utils zip
 
       - name: Setup Toolchain
         run: |
-          [span_32](start_span)LLVM_MINGW_VERSION=20240619[span_32](end_span)
-          [span_33](start_span)wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz[span_33](end_span)
-          [span_34](start_span)tar -xf llvm-mingw-*.tar.xz[span_34](end_span)
-          [span_35](start_span)echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV[span_35](end_span)
+          LLVM_MINGW_VERSION=20240619
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-*.tar.xz
+          echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV
 
       - name: Clone & Merge
         run: |
-          [span_36](start_span)git clone https://github.com/ptitSeb/box64 source[span_36](end_span)
+          git clone https://github.com/ptitSeb/box64 source
           cd source
-          [span_37](start_span)git remote add pipetto https://github.com/Pipetto-crypto/box64[span_37](end_span)
-          [span_38](start_span)git fetch pipetto[span_38](end_span)
+          git remote add pipetto https://github.com/Pipetto-crypto/box64
+          git fetch pipetto
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
-          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; [span_39](start_span)}
+          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; }
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          mkdir -p wine/common[span_39](end_span)
-          echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); [span_40](start_span)}' >> wine/common/crt.c[span_40](end_span)
+          mkdir -p wine/common
+          echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); }' >> wine/common/crt.c
 
       - name: Get Version
         run: echo "FULL_VERSION=WOWBox64-Hybrid-${{ env.COMMIT_HASH }}" >> $GITHUB_ENV
 
       - name: Build
         run: |
-          [span_41](start_span)export PATH=$PATH:${{ env.MINGW_PATH }}[span_41](end_span)
-          [span_42](start_span)mkdir build && cd build[span_42](end_span)
-          [span_43](start_span)cmake ../source -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc -DWOW64=1 -DARM_DYNAREC=1 -DCMAKE_BUILD_TYPE=Release[span_43](end_span)
-          [span_44](start_span)make -j$(nproc) wowbox64[span_44](end_span)
+          export PATH=$PATH:${{ env.MINGW_PATH }}
+          mkdir build && cd build
+          cmake ../source -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc -DWOW64=1 -DARM_DYNAREC=1 -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc) wowbox64
 
       - name: Package
         run: |
-          [span_45](start_span)cd build/wowbox64-prefix/src/wowbox64-build[span_45](end_span)
-          [span_46](start_span)echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64 Hybrid\nOfficial + Pipetto", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json[span_46](end_span)
-          [span_47](start_span)mkdir -p system32 && cp wowbox64.dll system32/[span_47](end_span)
-          [span_48](start_span)zip -r "${{ env.FULL_VERSION }}.zip" system32 profile.json[span_48](end_span)
-          [span_49](start_span)tar -cJf "${{ env.FULL_VERSION }}.wcp" system32 profile.json[span_49](end_span)
+          cd build/wowbox64-prefix/src/wowbox64-build
+          echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64 Hybrid\nOfficial + Pipetto", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
+          mkdir -p system32 && cp wowbox64.dll system32/
+          zip -r "${{ env.FULL_VERSION }}.zip" system32 profile.json
+          tar -cJf "${{ env.FULL_VERSION }}.wcp" system32 profile.json
 
       - uses: actions/upload-artifact@v4
         with:
           name: hybrid-wow64
-          [span_50](start_span)path: build/wowbox64-prefix/src/wowbox64-build/*.zip build/wowbox64-prefix/src/wowbox64-build/*.wcp[span_50](end_span)
+          path: build/wowbox64-prefix/src/wowbox64-build/*.zip build/wowbox64-prefix/src/wowbox64-build/*.wcp
 
   # ==================================================================
   # JOB 4: Release
