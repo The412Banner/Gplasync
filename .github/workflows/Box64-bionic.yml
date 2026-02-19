@@ -1,0 +1,110 @@
+name: Box64 Bionic (Android Native)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-box64-bionic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils
+
+      - name: Setup Android NDK (r26b)
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
+          
+          # Set Environment Variables for subsequent steps
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+          
+          # We use API 31 (Android 12) as requested by the pro-workflow you uploaded
+          COMPILER_PATH="$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang"
+          echo "BOX64_COMPILER=$COMPILER_PATH" >> $GITHUB_ENV
+
+      - name: Clone Box64
+        run: git clone https://github.com/ptitSeb/box64 source
+
+      - name: Get Version Info
+        id: version
+        run: |
+          cd source
+          MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
+          MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
+          REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+          VERSION="$MAJOR.$MINOR.$REVISION"
+          COMMIT=$(git rev-parse --short HEAD)
+          FULL_V="${VERSION}-${COMMIT}-bionic"
+          
+          echo "FULL_VERSION=$FULL_V" >> $GITHUB_ENV
+          echo "version=$FULL_V" >> $GITHUB_OUTPUT
+
+      - name: Configure and Build (Bionic Optimized)
+        run: |
+          mkdir build && cd build
+          
+          # PRO CONFIGURATION:
+          # -DBIONIC=1: Enables Android-specific libc hooks
+          # -DTERMUX=0: Prevents Termux path issues
+          # -DHAVE_TRACE=0: Disables internal debugger for smaller/faster binary
+          # -DANDROID=1: Standard Android build flag
+          
+          cmake ../source \
+            -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} \
+            -DANDROID=1 \
+            -DBIONIC=1 \
+            -DARM_DYNAREC=1 \
+            -DBAD_SIGNAL=1 \
+            -DTERMUX=0 \
+            -DHAVE_TRACE=0 \
+            -DCMAKE_BUILD_TYPE=Release
+            
+          make -j$(nproc)
+          
+          # SANITY CHECK: Ensure it actually linked against Android's libc
+          readelf -d box64 | grep -q "NEEDED.*libc.so" || { echo "Linking failed! Not an Android binary."; exit 1; }
+          
+          # Strip debug symbols
+          ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
+
+      - name: Package
+        run: |
+          cd build
+          
+          # Create Profile JSON
+          cat <<EOF > profile.json
+          {
+            "type": "Box64",
+            "versionName": "${{ env.FULL_VERSION }}",
+            "versionCode": 0,
+            "description": "Box64 Bionic (Native Android)\nOptimized Build: No Trace, No Termux, API 31",
+            "files": [
+              {"source": "box64", "target": "\${bindir}/box64"}
+            ]
+          }
+          EOF
+          
+          # 1. Create a clean folder for packaging
+          mkdir pkg_content
+          cp box64 pkg_content/
+          cp profile.json pkg_content/
+          
+          # 2. Compress to .tar
+          cd pkg_content
+          tar -cf ../temp.tar .
+          cd ..
+          
+          # 3. Rename and Compress to .wcp (xz format)
+          mv temp.tar temp_archive
+          xz -9 -c temp_archive > box64-bionic-${{ env.FULL_VERSION }}.wcp
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box64-bionic
+          path: build/*.wcp
