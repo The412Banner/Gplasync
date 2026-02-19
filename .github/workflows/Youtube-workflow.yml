@@ -1,9 +1,8 @@
 name: Latest YouTube Videos
 on:
   schedule:
-    # This runs every 6 hours to keep your README fresh
     - cron: '0 */6 * * *'
-  workflow_dispatch: # This allows you to run it manually to see results immediately
+  workflow_dispatch:
 
 jobs:
   update-readme-with-youtube:
@@ -17,5 +16,6 @@ jobs:
         with:
           comment_tag_name: "YOUTUBE-VIDEOS-LIST"
           feed_list: "https://www.youtube.com/feeds/videos.xml?channel_id=UCxWZ2GteikwcJZhefRtxaXg"
-          max_post_count: 5
-          template: '<table><tr><td><a href="$url"><img width="140px" src="https://i.ytimg.com/vi/$id/mqdefault.jpg"></a></td><td><a href="$url">$title</a><br/>$date</td></tr></table>'
+          max_post_count: 4
+          # This template puts them in a clean inline-block layout
+          template: '<a href="$url" style="display:inline-block; margin:10px;"><img width="180px" src="https://i.ytimg.com/vi/$id/mqdefault.jpg" alt="$title"/><br/><b>$title</b></a>'
