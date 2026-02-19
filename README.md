@@ -91,8 +91,7 @@ This project contains components for PC emulation on Android.
 
 ## 📺 Latest Testing from The412Banner
 ## Installation
-<!-- YOUTUBE-VIDEOS-LIST:START -->
-<!-- YOUTUBE-VIDEOS-LIST:END -->
+<!-- YOUTUBE-VIDEOS-LIST:START --><a href="https://www.youtube.com/watch?v=vChTFt-Ex3Q" style="display:inline-block; margin:10px;"><img width="180px" src="https://i.ytimg.com/vi/$id/mqdefault.jpg" alt="Amnesia: Rebirth on Gamehub Lite 5.3.5 PuBG - Konkr Pocket Fit - 30to60fps - Settings Shown"/><br/><b>Amnesia: Rebirth on Gamehub Lite 5.3.5 PuBG - Konkr Pocket Fit - 30to60fps - Settings Shown</b></a><a href="https://www.youtube.com/watch?v=SsOSmhFndiU" style="display:inline-block; margin:10px;"><img width="180px" src="https://i.ytimg.com/vi/$id/mqdefault.jpg" alt="Reanimal on Gamehub Lite 5.3.5 PuBG - Konkr Pocket Fit - DX11 &amp; DX12 test - Settings Shown 30to60fps"/><br/><b>Reanimal on Gamehub Lite 5.3.5 PuBG - Konkr Pocket Fit - DX11 &amp; DX12 test - Settings Shown 30to60fps</b></a><a href="https://www.youtube.com/watch?v=vDl7XQvxIgQ" style="display:inline-block; margin:10px;"><img width="180px" src="https://i.ytimg.com/vi/$id/mqdefault.jpg" alt="Dead Rising 3 Apocalypse Edition on Gamehub Lite 5.3.5 PuBG - Konkr Pocket Fit - 60fps+ w/ Settings"/><br/><b>Dead Rising 3 Apocalypse Edition on Gamehub Lite 5.3.5 PuBG - Konkr Pocket Fit - 60fps+ w/ Settings</b></a><a href="https://www.youtube.com/watch?v=itjAyQ9-giE" style="display:inline-block; margin:10px;"><img width="180px" src="https://i.ytimg.com/vi/$id/mqdefault.jpg" alt="High on Life on Gamehub Lite 5.3.5 PuBG - Konkr Pocket Fit - 30fps+ - Settings Shown"/><br/><b>High on Life on Gamehub Lite 5.3.5 PuBG - Konkr Pocket Fit - 30fps+ - Settings Shown</b></a><!-- YOUTUBE-VIDEOS-LIST:END -->
 ---
 <br>
 <h3 align="center"> Credits </h3>
