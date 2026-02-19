@@ -1,11 +1,11 @@
 name: DXVK ARM64EC (GPLAsync)
 
 on:
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
   push:
     branches: [ "main" ]
   schedule:
-    - cron: '0 4 * * *' # Optional: Runs daily at 4am UTC (Nightly)
+    - cron: '0 4 * * *'
 
 jobs:
   build:
@@ -25,7 +25,6 @@ jobs:
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
-          # Add to system PATH for subsequent steps
           echo "$PWD/glslang/bin" >> $GITHUB_PATH
 
       - name: Setup LLVM-MinGW
@@ -33,7 +32,6 @@ jobs:
           LLVM_MINGW_TAG="20251104"
           wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
           tar -xf llvm.tar.xz
-          # Add to system PATH for subsequent steps
           echo "$PWD/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
 
       - name: Clone & Patch DXVK
@@ -41,23 +39,19 @@ jobs:
           git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
           cd dxvk
           
-          # Versioning
           git fetch --tags
           LATEST_TAG=$(git describe --tags --abbrev=0)
           COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION_NAME="${LATEST_TAG}-ARM64EC-${COMMIT_HASH}"
+          # Format: 2.7.1-gplasync-arm64ec-1a2b3c
+          VERSION_NAME="${LATEST_TAG}-gplasync-arm64ec-${COMMIT_HASH}"
           
-          # Save variables to GitHub Environment
           echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
-          echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
           
-          # Apply GPLAsync Patch
           wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
           git apply dxvk-gplasync-master.patch
 
       - name: Configure Cross-Files
         run: |
-          # Create arm64ec.txt
           cat <<EOF > arm64ec.txt
           [binaries]
           c = 'arm64ec-w64-mingw32-clang'
@@ -74,7 +68,6 @@ jobs:
           endian = 'little'
           EOF
 
-          # Create x86.txt (for SysWoW64)
           cat <<EOF > x86.txt
           [binaries]
           c = 'i686-w64-mingw32-clang'
@@ -94,11 +87,9 @@ jobs:
       - name: Build
         run: |
           cd dxvk
-          # Configure
           meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
           meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
           
-          # Build (parallel)
           ninja -C build-ec -j 2
           ninja -C build-x86 -j 2
 
@@ -107,44 +98,75 @@ jobs:
           mkdir -p packaging/system32
           mkdir -p packaging/syswow64
           
-          # Copy DLLs (ARM64EC -> System32, x86 -> SysWoW64)
-          cp dxvk/build-ec/src/d3d11/d3d11.dll packaging/system32/
-          cp dxvk/build-ec/src/d3d10/d3d10core.dll packaging/system32/
-          cp dxvk/build-ec/src/d3d9/d3d9.dll packaging/system32/
-          cp dxvk/build-ec/src/dxgi/dxgi.dll packaging/system32/
+          # Helper function to copy and strip
+          copy_dll() {
+            SRC_DIR=$1
+            DEST_DIR=$2
+            cp "dxvk/$SRC_DIR/src/d3d11/d3d11.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d10/d3d10core.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d9/d3d9.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d8/d3d8.dll" "$DEST_DIR/" || true # d3d8 might not exist in all versions
+            cp "dxvk/$SRC_DIR/src/dxgi/dxgi.dll" "$DEST_DIR/"
+          }
+
+          copy_dll "build-ec" "packaging/system32"
+          copy_dll "build-x86" "packaging/syswow64"
           
-          cp dxvk/build-x86/src/d3d11/d3d11.dll packaging/syswow64/
-          cp dxvk/build-x86/src/d3d10/d3d10core.dll packaging/syswow64/
-          cp dxvk/build-x86/src/d3d9/d3d9.dll packaging/syswow64/
-          cp dxvk/build-x86/src/dxgi/dxgi.dll packaging/syswow64/
-          
-          # Strip Debug Symbols
           llvm-strip --strip-all packaging/system32/*.dll
           llvm-strip --strip-all packaging/syswow64/*.dll
 
-          # Generate Profile.json for Winlator
-          BUILD_DATE=$(date +'%Y-%m-%d')
+          # Generate exact JSON format requested
           cat <<EOF > packaging/profile.json
           {
             "type": "DXVK",
             "versionName": "${{ env.VERSION_NAME }}",
-            "versionCode": 1,
-            "description": "DXVK ARM64EC (GPLAsync)\nCommit: ${{ env.COMMIT_HASH }}\nDate: ${BUILD_DATE}",
-            "author": "Doitsujin / Ph42oN / Gemini",
+            "versionCode": 0,
+            "description": "Built on the Winlator WCP Hub (Upstream: Philip Rebohle, Patch: Ph42oN)",
             "files": [
-              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
-              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
-              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
-              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
-              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
-              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
-              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
-              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
+              {
+                "source": "system32/d3d10core.dll",
+                "target": "\${system32}/d3d10core.dll"
+              },
+              {
+                "source": "system32/d3d11.dll",
+                "target": "\${system32}/d3d11.dll"
+              },
+              {
+                "source": "system32/d3d8.dll",
+                "target": "\${system32}/d3d8.dll"
+              },
+              {
+                "source": "system32/d3d9.dll",
+                "target": "\${system32}/d3d9.dll"
+              },
+              {
+                "source": "system32/dxgi.dll",
+                "target": "\${system32}/dxgi.dll"
+              },
+              {
+                "source": "syswow64/d3d10core.dll",
+                "target": "\${syswow64}/d3d10core.dll"
+              },
+              {
+                "source": "syswow64/d3d11.dll",
+                "target": "\${syswow64}/d3d11.dll"
+              },
+              {
+                "source": "syswow64/d3d8.dll",
+                "target": "\${syswow64}/d3d8.dll"
+              },
+              {
+                "source": "syswow64/d3d9.dll",
+                "target": "\${syswow64}/d3d9.dll"
+              },
+              {
+                "source": "syswow64/dxgi.dll",
+                "target": "\${syswow64}/dxgi.dll"
+              }
             ]
           }
           EOF
           
-          # Compress to WCP (using zstd)
           cd packaging
           tar --zstd -cf ../DXVK-ARM64EC-${{ env.VERSION_NAME }}.wcp *
 
@@ -153,4 +175,3 @@ jobs:
         with:
           name: DXVK-ARM64EC-${{ env.VERSION_NAME }}
           path: ./*.wcp
-          
