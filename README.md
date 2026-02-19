@@ -83,15 +83,6 @@ https://github.com/Arihany/WinlatorWCPHub
 - If older VC++ is needed, try an [**AIO package**](https://www.techpowerup.com/download/visual-c-redistributable-runtime-package-all-in-one/). <br>
 
 </details>
-
-
----
-# My Emulation Repo
-This project contains components for PC emulation on Android.
-
-## 📺 Latest Testing from The412Banner
-## Installation
-<!-- YOUTUBE-VIDEOS-LIST:START --><a href="https://www.youtube.com/watch?v=vChTFt-Ex3Q"><img src="youtube-thumbnails/$id.jpg" width="180"></a><a href="https://www.youtube.com/watch?v=SsOSmhFndiU"><img src="youtube-thumbnails/$id.jpg" width="180"></a><a href="https://www.youtube.com/watch?v=vDl7XQvxIgQ"><img src="youtube-thumbnails/$id.jpg" width="180"></a><a href="https://www.youtube.com/watch?v=itjAyQ9-giE"><img src="youtube-thumbnails/$id.jpg" width="180"></a><!-- YOUTUBE-VIDEOS-LIST:END -->
 ---
 <br>
 <h3 align="center"> Credits </h3>
