@@ -185,7 +185,8 @@ jobs:
           git config user.name "GitHub Action"
           git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; }
           
-          # Patch CRT for MinGW (Essential for WOW64 build)
+          # FIXED: Create directory first to prevent "No such file or directory" error
+          mkdir -p wine/common
           echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); }' >> wine/common/crt.c
 
       - name: Get Version
