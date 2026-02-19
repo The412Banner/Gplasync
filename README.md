@@ -86,7 +86,8 @@ https://github.com/Arihany/WinlatorWCPHub
 
 
 ---
-### 📺 Latest from The412Banner
+### 📺 Latest Emulation & Tech Videos from The412Banner
+
 ---
 <br>
 <h3 align="center"> Credits </h3>
