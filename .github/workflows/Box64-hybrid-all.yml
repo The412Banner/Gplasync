@@ -82,7 +82,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Dependencies
-        run: sudo apt-get update && sudo apt-get install -y git Record cmake make python3 p7zip-full wget tar file unzip xz-utils zip
+        # FIXED: Removed the accidental 'Record' word from the line below
+        run: sudo apt-get update && sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils zip
 
       - name: Setup Android NDK
         run: |
