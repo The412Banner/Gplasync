@@ -91,8 +91,7 @@ This project contains components for PC emulation on Android.
 
 ## 📺 Latest Testing from The412Banner
 ## Installation
-<!-- YOUTUBE-VIDEOS-LIST:START -->
-<!-- YOUTUBE-VIDEOS-LIST:END -->
+<!-- YOUTUBE-VIDEOS-LIST:START --><a href="https://www.youtube.com/watch?v=vChTFt-Ex3Q"><img src="https://i.ytimg.com/vi/$id/mqdefault.jpg" width="200" height="112" style="display:inline-block; margin-right:10px;" /></a><a href="https://www.youtube.com/watch?v=SsOSmhFndiU"><img src="https://i.ytimg.com/vi/$id/mqdefault.jpg" width="200" height="112" style="display:inline-block; margin-right:10px;" /></a><a href="https://www.youtube.com/watch?v=vDl7XQvxIgQ"><img src="https://i.ytimg.com/vi/$id/mqdefault.jpg" width="200" height="112" style="display:inline-block; margin-right:10px;" /></a><a href="https://www.youtube.com/watch?v=itjAyQ9-giE"><img src="https://i.ytimg.com/vi/$id/mqdefault.jpg" width="200" height="112" style="display:inline-block; margin-right:10px;" /></a><!-- YOUTUBE-VIDEOS-LIST:END -->
 ---
 <br>
 <h3 align="center"> Credits </h3>
