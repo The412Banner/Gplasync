@@ -17,5 +17,4 @@ jobs:
           comment_tag_name: "YOUTUBE-VIDEOS-LIST"
           feed_list: "https://www.youtube.com/feeds/videos.xml?channel_id=UCxWZ2GteikwcJZhefRtxaXg"
           max_post_count: 4
-          # This template puts them in a clean inline-block layout
-          template: '[![$title](https://i.ytimg.com/vi/$id/mqdefault.jpg)]($url) '
+          template: '<a href="$url"><img src="https://i.ytimg.com/vi/$id/mqdefault.jpg" width="180"></a> '
