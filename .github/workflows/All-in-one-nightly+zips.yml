@@ -35,7 +35,7 @@ jobs:
       - name: Clone Box64
         run: git clone https://github.com/ptitSeb/box64 source
 
-      - name: Get Version Info
+      - name: Get Version
         id: version
         run: |
           cd source
@@ -44,17 +44,14 @@ jobs:
           REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
           VERSION="$MAJOR.$MINOR.$REVISION"
           COMMIT=$(git rev-parse --short HEAD)
-          FULL_V="${VERSION}-${COMMIT}-nightly"
-          echo "FULL_VERSION=$FULL_V" >> $GITHUB_ENV
-          echo "version=$FULL_V" >> $GITHUB_OUTPUT
-          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}-${COMMIT}-nightly" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "FULL_VERSION=${VERSION}-${COMMIT}-nightly" >> $GITHUB_ENV
 
       - name: Configure and Build
         run: |
           mkdir build && cd build
-          cmake ../source \
-            -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} \
-            -DANDROID=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DCMAKE_BUILD_TYPE=Release
+          cmake ../source -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} -DANDROID=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
           ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
 
@@ -63,24 +60,160 @@ jobs:
           cd build
           echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
           
-          # Create WCP (TarXZ)
-          tar -cJf "box64-${{ env.FULL_VERSION }}.wcp" box64 profile.json
+          # ZIP
+          zip -r "../box64-${{ env.FULL_VERSION }}.zip" box64 profile.json
           
-          # Create ZIP (Raw files)
-          zip -r "box64-${{ env.FULL_VERSION }}.zip" box64 profile.json
+          # WCP (tar.xz)
+          tar -cf temp.tar box64 profile.json
+          xz -9 -c temp.tar > "../box64-${{ env.FULL_VERSION }}.wcp"
 
       - uses: actions/upload-artifact@v4
         with:
           name: box64-native
           path: |
-            build/box64-*.wcp
-            build/box64-*.zip
+            *.wcp
+            *.zip
 
   # ==================================================================
-  # JOB 2: Box64 (Bionic Optimized)
+  # JOB 2: Box64 (Bionic)
   # ==================================================================
   build-box64-bionic:
     name: Build Box64 (Bionic)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils zip
+
+      - name: Setup Android NDK
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+          echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang" >> $GITHUB_ENV
+
+      - name: Clone Box64
+        run: git clone https://github.com/ptitSeb/box64 source
+
+      - name: Get Version
+        id: version
+        run: |
+          cd source
+          MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
+          MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
+          REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+          VERSION="$MAJOR.$MINOR.$REVISION"
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "version=${VERSION}-bionic-${COMMIT}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "FULL_VERSION=${VERSION}-bionic-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Configure and Build
+        run: |
+          mkdir build && cd build
+          cmake ../source -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} -DANDROID=1 -DBIONIC=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DTERMUX=0 -DHAVE_TRACE=0 -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
+
+      - name: Package
+        run: |
+          cd build
+          echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64-Bionic-${{ env.FULL_VERSION }}. Optimized Bionic Link", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
+          
+          # ZIP
+          zip -r "../box64-bionic-${{ env.FULL_VERSION }}.zip" box64 profile.json
+          
+          # WCP
+          tar -cf temp.tar box64 profile.json
+          xz -9 -c temp.tar > "../box64-bionic-${{ env.FULL_VERSION }}.wcp"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box64-bionic
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
+  # JOB 3: Box64 Hybrid (Native)
+  # ==================================================================
+  build-hybrid-native:
+    name: Build Hybrid (Native)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils zip
+
+      - name: Setup Android NDK (r26b)
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip -q android-ndk-r26b-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+          echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" >> $GITHUB_ENV
+
+      - name: Clone & Merge Source
+        run: |
+          git clone https://github.com/ptitSeb/box64 source
+          cd source
+          git remote add pipetto https://github.com/Pipetto-crypto/box64
+          git fetch pipetto
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
+          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; }
+
+      - name: Get Version
+        id: version
+        run: |
+          cd source
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "version=Box64-Hybrid-Native-${COMMIT}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "FULL_VERSION=Box64-Hybrid-Native-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Configure and Build
+        run: |
+          mkdir build && cd build
+          cmake ../source -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} -DANDROID=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
+
+      - name: Package
+        run: |
+          cd build
+          echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64 Hybrid (Native)\nOfficial + Pipetto", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
+          mkdir pkg_content
+          cp box64 pkg_content/ && cp profile.json pkg_content/
+          cd pkg_content
+          zip -r "../${{ env.FULL_VERSION }}.zip" .
+          tar -cf ../temp.tar .
+          cd ..
+          xz -9 -c temp.tar > "${{ env.FULL_VERSION }}.wcp"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-native
+          path: |
+            build/*.wcp
+            build/*.zip
+
+  # ==================================================================
+  # JOB 4: Box64 Hybrid (Bionic)
+  # ==================================================================
+  build-hybrid-bionic:
+    name: Build Hybrid (Bionic)
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -100,73 +233,56 @@ jobs:
           echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
           echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang" >> $GITHUB_ENV
 
-      - name: Clone Box64
-        run: git clone https://github.com/ptitSeb/box64 source
+      - name: Clone & Merge Source
+        run: |
+          git clone https://github.com/ptitSeb/box64 source
+          cd source
+          git remote add pipetto https://github.com/Pipetto-crypto/box64
+          git fetch pipetto
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
+          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; }
 
-      - name: Get Version Info
+      - name: Get Version
         id: version
         run: |
           cd source
-          MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
-          MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
-          REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
-          VERSION="$MAJOR.$MINOR.$REVISION"
           COMMIT=$(git rev-parse --short HEAD)
-          FULL_V="${VERSION}-${COMMIT}-bionic"
-          echo "FULL_VERSION=$FULL_V" >> $GITHUB_ENV
-          echo "version=$FULL_V" >> $GITHUB_OUTPUT
-          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "version=Box64-Hybrid-Bionic-${COMMIT}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "FULL_VERSION=Box64-Hybrid-Bionic-${COMMIT}" >> $GITHUB_ENV
 
       - name: Configure and Build
         run: |
           mkdir build && cd build
-          cmake ../source \
-            -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} \
-            -DANDROID=1 -DBIONIC=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DTERMUX=0 -DHAVE_TRACE=0 -DCMAKE_BUILD_TYPE=Release
+          cmake ../source -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} -DANDROID=1 -DBIONIC=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DTERMUX=0 -DHAVE_TRACE=0 -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
-          readelf -d box64 | grep -q "NEEDED.*libc.so" || { echo "Linking failed!"; exit 1; }
           ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
 
       - name: Package
         run: |
           cd build
-          cat <<EOF > profile.json
-          {
-            "type": "Box64",
-            "versionName": "${{ env.FULL_VERSION }}",
-            "versionCode": 0,
-            "description": "Box64 Bionic (Native)\nOptimized: No Trace, API 31",
-            "files": [{"source": "box64", "target": "\${bindir}/box64"}]
-          }
-          EOF
-          
-          # Prepare content
+          echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64 Hybrid (Bionic)\nOfficial + Pipetto", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
           mkdir pkg_content
-          cp box64 pkg_content/
-          cp profile.json pkg_content/
-          
-          # 1. Create ZIP
+          cp box64 pkg_content/ && cp profile.json pkg_content/
           cd pkg_content
-          zip -r "../box64-bionic-${{ env.FULL_VERSION }}.zip" .
-          
-          # 2. Create WCP (Tar -> Rename -> XZ)
+          zip -r "../${{ env.FULL_VERSION }}.zip" .
           tar -cf ../temp.tar .
           cd ..
-          mv temp.tar temp_archive
-          xz -9 -c temp_archive > box64-bionic-${{ env.FULL_VERSION }}.wcp
+          xz -9 -c temp.tar > "${{ env.FULL_VERSION }}.wcp"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: box64-bionic
+          name: hybrid-bionic
           path: |
             build/*.wcp
             build/*.zip
 
   # ==================================================================
-  # JOB 3: WOWBox64 (MinGW)
+  # JOB 5: WOWBox64 (MinGW)
   # ==================================================================
   build-wowbox64:
-    name: Build WOWBox64 (MinGW)
+    name: Build WOWBox64
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -179,79 +295,137 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git cmake make python3 wget tar xz-utils zip
 
-      - name: Setup Toolchain
+      - name: Setup Toolchain (LLVM-MinGW)
         run: |
           LLVM_MINGW_VERSION=20240619
           wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz
           tar -xf llvm-mingw-*.tar.xz
           echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV
 
-      - name: Clone and Patch
-        run: |
-          git clone https://github.com/ptitSeb/box64 source
-          cd source
-          echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); }' >> wine/common/crt.c
+      - name: Clone Box64
+        run: git clone https://github.com/ptitSeb/box64 source
 
-      - name: Get Version Info
+      - name: Get Version
         id: version
         run: |
           cd source
           MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
           MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
           REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+          VERSION="$MAJOR.$MINOR.$REVISION"
           COMMIT=$(git rev-parse --short HEAD)
-          FULL_V="$MAJOR.$MINOR.$REVISION-${COMMIT}-nightly"
-          echo "FULL_VERSION=$FULL_V" >> $GITHUB_ENV
-          echo "version=$FULL_V" >> $GITHUB_OUTPUT
-          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}-${COMMIT}-nightly" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "FULL_VERSION=${VERSION}-${COMMIT}-nightly" >> $GITHUB_ENV
 
       - name: Configure and Build
         run: |
           export PATH=$PATH:${{ env.MINGW_PATH }}
           mkdir build && cd build
-          cmake ../source \
-            -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc \
-            -DWOW64=1 -DARM_DYNAREC=1 -DCMAKE_BUILD_TYPE=Release
+          cmake ../source -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc -DWOW64=1 -DARM_DYNAREC=1 -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc) wowbox64
 
       - name: Package
         run: |
           cd build/wowbox64-prefix/src/wowbox64-build
-          echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64-${{ env.FULL_VERSION }}. Author: MaxsTechReview", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
+          echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64-Full-${{ env.FULL_VERSION }}", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
           mkdir -p system32 && cp wowbox64.dll system32/
-          
-          # Create WCP
-          tar -cJf "WOWBox64-${{ env.FULL_VERSION }}.wcp" system32 profile.json
-          
-          # Create ZIP
-          zip -r "WOWBox64-${{ env.FULL_VERSION }}.zip" system32 profile.json
+          zip -r "../../../../../WOWBox64-${{ env.FULL_VERSION }}.zip" system32 profile.json
+          tar -cJf "../../../../../WOWBox64-${{ env.FULL_VERSION }}.wcp" system32 profile.json
 
       - uses: actions/upload-artifact@v4
         with:
           name: wowbox64-mingw
           path: |
-            build/wowbox64-prefix/src/wowbox64-build/*.wcp
-            build/wowbox64-prefix/src/wowbox64-build/*.zip
+            *.wcp
+            *.zip
 
   # ==================================================================
-  # JOB 4: FEXCore Nightly
+  # JOB 6: WOWBox64 Hybrid (MinGW)
   # ==================================================================
-  build-fex:
-    name: Build FEXCore
+  build-hybrid-wow64:
+    name: Build Hybrid (WOWBox64)
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       commit: ${{ steps.version.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
       - name: Install Dependencies
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-recommends \
-            ca-certificates curl xz-utils jq git zip \
-            build-essential python3 pkg-config cmake zstd \
-            dos2unix perl tar unzip meson ninja-build wget
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 wget tar xz-utils zip
 
-      - name: Setup GLSLANG
+      - name: Setup Toolchain (LLVM-MinGW)
+        run: |
+          LLVM_MINGW_VERSION=20240619
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-*.tar.xz
+          echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV
+
+      - name: Clone & Merge Source
+        run: |
+          git clone https://github.com/ptitSeb/box64 source
+          cd source
+          git remote add pipetto https://github.com/Pipetto-crypto/box64
+          git fetch pipetto
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
+          git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; }
+          mkdir -p wine/common
+          echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); }' >> wine/common/crt.c
+
+      - name: Get Version
+        id: version
+        run: |
+          cd source
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "version=WOWBox64-Hybrid-${COMMIT}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "FULL_VERSION=WOWBox64-Hybrid-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Configure and Build
+        run: |
+          export PATH=$PATH:${{ env.MINGW_PATH }}
+          mkdir build && cd build
+          cmake ../source -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc -DWOW64=1 -DARM_DYNAREC=1 -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc) wowbox64
+
+      - name: Package
+        run: |
+          cd build/wowbox64-prefix/src/wowbox64-build
+          echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64 Hybrid\nOfficial + Pipetto", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
+          mkdir -p system32 && cp wowbox64.dll system32/
+          zip -r "../../../../../${{ env.FULL_VERSION }}.zip" system32 profile.json
+          tar -cJf "../../../../../${{ env.FULL_VERSION }}.wcp" system32 profile.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-wow64
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
+  # JOB 7: FEXCore Nightly
+  # ==================================================================
+  build-fex:
+    name: Build FEXCore (MinGW)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl xz-utils jq git build-essential \
+            python3 pkg-config cmake zstd dos2unix perl tar unzip meson ninja-build
+
+      - name: Setup glslang
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
@@ -262,77 +436,57 @@ jobs:
           LLVM_MINGW_TAG="20251104"
           TOOLCHAIN_DIR="/opt/llvm-mingw"
           wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
-          sudo rm -rf "$TOOLCHAIN_DIR" && sudo mkdir -p "$TOOLCHAIN_DIR"
+          sudo mkdir -p "$TOOLCHAIN_DIR"
           sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
           echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
 
-      - name: Build FEX
+      - name: Clone FEX
+        run: git clone --recursive https://github.com/FEX-Emu/FEX.git source
+
+      - name: Get Version
         id: version
         run: |
-          git clone --recursive https://github.com/FEX-Emu/FEX.git source
           cd source
-          
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION_NAME="${LATEST_TAG}-Nightly-${COMMIT_HASH}"
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
-          echo "version=${VERSION_NAME}" >> $GITHUB_OUTPUT
-          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "version=${LATEST_TAG}-Nightly-${COMMIT}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=${LATEST_TAG}-Nightly-${COMMIT}" >> $GITHUB_ENV
 
+      - name: Build FEX (ARM64EC & AArch64)
+        run: |
+          cd source
           build_arch() {
             local triple="$1"
             local dest="$2"
-            local build_dir="build-${triple}"
-            
-            rm -rf "$build_dir" && mkdir "$build_dir" && cd "$build_dir"
-            cmake -G Ninja -Wno-dev \
-              -DCMAKE_BUILD_TYPE=Release \
+            mkdir "build-${triple}" && cd "build-${triple}"
+            cmake -G Ninja -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_TOOLCHAIN_FILE=../Data/CMake/toolchain_mingw.cmake \
               -DMINGW_TRIPLE="${triple}-w64-mingw32" \
               -DCMAKE_INSTALL_PREFIX=/usr \
               -DCMAKE_INSTALL_LIBDIR=/usr/lib/wine/aarch64-windows \
-              -DENABLE_JEMALLOC_GLIBC_ALLOC=False \
-              -DENABLE_LTO=False -DENABLE_ASSERTIONS=False -DBUILD_TESTING=False \
-              ..
-            ninja -j 2
+              -DENABLE_JEMALLOC_GLIBC_ALLOC=False -DENABLE_LTO=False -DBUILD_TESTING=False ..
+            ninja -j$(nproc)
             DESTDIR="$dest" ninja install
             cd ..
           }
-
           build_arch "arm64ec" "../../stage-ec"
           build_arch "aarch64" "../../stage-wo"
 
       - name: Package
         run: |
-          rm -rf final_package && mkdir -p final_package/system32
-          DLL_EC=$(find stage-ec -type f -name '*.dll' | head -n 1)
-          DLL_WOW=$(find stage-wo -type f -name '*.dll' | head -n 1)
+          mkdir -p final_package/system32
+          cp $(find stage-ec -name 'libarm64ecfex.dll') final_package/system32/
+          cp $(find stage-wo -name 'libwow64fex.dll') final_package/system32/
+          llvm-strip --strip-all final_package/system32/*.dll
           
-          cp "$DLL_EC" final_package/system32/libarm64ecfex.dll
-          cp "$DLL_WOW" final_package/system32/libwow64fex.dll
-          /opt/llvm-mingw/bin/llvm-strip --strip-all final_package/system32/*.dll
+          echo '{"type": "FEXCore", "versionName": "${{ env.VERSION_NAME }}", "versionCode": 0, "description": "FEXCore Nightly\n${{ env.VERSION_NAME }}", "files": [{"source": "system32/libarm64ecfex.dll", "target": "${system32}/libarm64ecfex.dll"}, {"source": "system32/libwow64fex.dll", "target": "${system32}/libwow64fex.dll"}]}' > final_package/profile.json
           
-          cat <<EOF > final_package/profile.json
-          {
-            "type": "FEXCore",
-            "versionName": "${{ env.VERSION_NAME }}",
-            "versionCode": ${{ github.run_number }},
-            "description": "FEXCore Nightly\n${{ env.VERSION_NAME }}",
-            "author": "FEX-Emu / Gemini",
-            "files": [
-              { "source": "system32/libarm64ecfex.dll", "target": "\${system32}/libarm64ecfex.dll" },
-              { "source": "system32/libwow64fex.dll", "target": "\${system32}/libwow64fex.dll" }
-            ]
-          }
-          EOF
+          # ZIP
+          zip -r "${{ env.VERSION_NAME }}.zip" final_package
           
-          cd final_package
-          
-          # Create WCP
-          tar -cJf ../${{ env.VERSION_NAME }}.wcp .
-          
-          # Create ZIP
-          zip -r ../${{ env.VERSION_NAME }}.zip .
+          # WCP
+          tar -cJf "${{ env.VERSION_NAME }}.wcp" -C final_package .
 
       - uses: actions/upload-artifact@v4
         with:
@@ -342,24 +496,24 @@ jobs:
             *.zip
 
   # ==================================================================
-  # JOB 5: VKD3D-Proton (Standard)
+  # JOB 8: VKD3D-Proton (Standard)
   # ==================================================================
   build-vkd3d:
-    name: Build VKD3D-Proton (Standard)
+    name: Build VKD3D-Proton (Std)
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       commit: ${{ steps.version.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
       - name: Install Dependencies
         run: |
-          sudo apt-get update -y
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ca-certificates curl xz-utils jq git zip \
-            build-essential python3 pkg-config zstd \
-            meson ninja-build wget unzip
+            ca-certificates curl xz-utils jq git build-essential \
+            python3 pkg-config zstd meson ninja-build wget unzip
 
-      - name: Setup GLSLANG
+      - name: Setup glslang
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
@@ -370,94 +524,70 @@ jobs:
           LLVM_MINGW_TAG="20251104"
           TOOLCHAIN_DIR="/opt/llvm-mingw"
           wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
-          sudo rm -rf "$TOOLCHAIN_DIR" && sudo mkdir -p "$TOOLCHAIN_DIR"
+          sudo mkdir -p "$TOOLCHAIN_DIR"
           sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
           echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
 
-      - name: Build VKD3D
+      - name: Clone VKD3D
+        run: git clone --recursive https://github.com/HansKristian-Work/vkd3d-proton src
+
+      - name: Get Version
         id: version
         run: |
-          git clone --recursive https://github.com/HansKristian-Work/vkd3d-proton src
           cd src
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION_NAME="3.0b-${COMMIT_HASH}"
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
-          echo "version=${VERSION_NAME}" >> $GITHUB_OUTPUT
-          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
-          cd ..
-          
-          # (Skip creating cross files for brevity in this display, assume identical to previous logic)
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "version=3.0b-${COMMIT}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=3.0b-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
           cat <<EOF > cross-x64.txt
           [binaries]
-          c = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-clang'
-          cpp = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-clang++'
-          ar = '/opt/llvm-mingw/bin/llvm-ar'
-          strip = '/opt/llvm-mingw/bin/llvm-strip'
-          windres = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-windres'
-          widl = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-widl'
-          pkg-config = 'pkg-config'
-          exe_wrapper = ['wine']
+          c = 'x86_64-w64-mingw32-clang'
+          cpp = 'x86_64-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'x86_64-w64-mingw32-windres'
           [host_machine]
           system = 'windows'
           cpu_family = 'x86_64'
           cpu = 'x86_64'
           endian = 'little'
           EOF
-
           cat <<EOF > cross-x86.txt
           [binaries]
-          c = '/opt/llvm-mingw/bin/i686-w64-mingw32-clang'
-          cpp = '/opt/llvm-mingw/bin/i686-w64-mingw32-clang++'
-          ar = '/opt/llvm-mingw/bin/llvm-ar'
-          strip = '/opt/llvm-mingw/bin/llvm-strip'
-          windres = '/opt/llvm-mingw/bin/i686-w64-mingw32-windres'
-          widl = '/opt/llvm-mingw/bin/i686-w64-mingw32-widl'
-          pkg-config = 'pkg-config'
-          exe_wrapper = ['wine']
+          c = 'i686-w64-mingw32-clang'
+          cpp = 'i686-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'i686-w64-mingw32-windres'
           [host_machine]
           system = 'windows'
           cpu_family = 'x86'
           cpu = 'i686'
           endian = 'little'
           EOF
-
           cd src
           meson setup build-x64 --cross-file ../cross-x64.txt -Dbuildtype=release -Dstrip=true
-          ninja -C build-x64 -j 2
+          ninja -C build-x64 -j$(nproc)
           meson setup build-x86 --cross-file ../cross-x86.txt -Dbuildtype=release -Dstrip=true
-          ninja -C build-x86 -j 2
+          ninja -C build-x86 -j$(nproc)
 
       - name: Package
         run: |
-          rm -rf final_package && mkdir -p final_package/system32 final_package/syswow64
+          mkdir -p packaging/system32 packaging/syswow64
+          cp src/build-x64/src/d3d12.dll packaging/system32/
+          cp src/build-x64/src/d3d12core.dll packaging/system32/
+          cp src/build-x86/src/d3d12.dll packaging/syswow64/
+          cp src/build-x86/src/d3d12core.dll packaging/syswow64/
+          echo '{"type": "VKD3D", "versionName": "${{ env.VERSION_NAME }}", "versionCode": 0, "description": "vkd3d-proton Std", "files": [{"source": "system32/d3d12.dll", "target": "${system32}/d3d12.dll"}, {"source": "syswow64/d3d12.dll", "target": "${syswow64}/d3d12.dll"}]}' > packaging/profile.json
           
-          find src/build-x64 -name "d3d12.dll" -exec cp -L {} final_package/system32/ \;
-          find src/build-x64 -name "d3d12core.dll" -exec cp -L {} final_package/system32/ \;
-          find src/build-x86 -name "d3d12.dll" -exec cp -L {} final_package/syswow64/ \;
-          find src/build-x86 -name "d3d12core.dll" -exec cp -L {} final_package/syswow64/ \;
+          # ZIP
+          zip -r "VKD3D-Proton-${{ env.VERSION_NAME }}.zip" packaging
           
-          cat <<EOF > final_package/profile.json
-          {
-            "type": "VKD3D",
-            "versionName": "${{ env.VERSION_NAME }}",
-            "versionCode": 1,
-            "description": "${{ steps.version.outputs.commit }}",
-            "files": [
-              {"source": "system32/d3d12.dll", "target": "\${system32}/d3d12.dll"},
-              {"source": "system32/d3d12core.dll", "target": "\${system32}/d3d12core.dll"},
-              {"source": "syswow64/d3d12.dll", "target": "\${syswow64}/d3d12.dll"},
-              {"source": "syswow64/d3d12core.dll", "target": "\${syswow64}/d3d12core.dll"}
-            ]
-          }
-          EOF
-          
-          cd final_package
-          
-          # Create WCP
-          tar -cJf ../VKD3D-Proton-${{ env.VERSION_NAME }}.wcp *
-          
-          # Create ZIP
-          zip -r ../VKD3D-Proton-${{ env.VERSION_NAME }}.zip *
+          # WCP
+          tar -cJf "VKD3D-Proton-${{ env.VERSION_NAME }}.wcp" -C packaging .
 
       - uses: actions/upload-artifact@v4
         with:
@@ -467,86 +597,7 @@ jobs:
             *.zip
 
   # ==================================================================
-  # JOB 6: DXVK Nightly (Standard)
-  # ==================================================================
-  build-dxvk:
-    name: Build DXVK (GPLAsync)
-    runs-on: ubuntu-latest
-    outputs:
-      commit: ${{ steps.version.outputs.commit }}
-    steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mingw-w64 wget git xz-utils python3 meson ninja-build build-essential unzip zip
-
-      - name: Setup GLSLANG
-        run: |
-          wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
-          unzip -q glslang-master-linux-Release.zip -d glslang
-          echo "$PWD/glslang/bin" >> $GITHUB_PATH
-
-      - name: Build DXVK
-        id: version
-        run: |
-          git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
-          cd dxvk
-          git fetch --tags
-          LATEST_TAG=$(git describe --tags --abbrev=0)
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION_NAME="${LATEST_TAG}-gplasync-${COMMIT_HASH}"
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
-          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
-          
-          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
-          git apply dxvk-gplasync-master.patch
-          
-          sed -i 's/ninja/ninja -j 2/g' package-release.sh
-          ./package-release.sh master ../dxvk-built --no-package
-
-      - name: Package
-        run: |
-          mkdir -p packaging
-          cp -r dxvk-built/dxvk-master/x64 packaging/system32
-          cp -r dxvk-built/dxvk-master/x32 packaging/syswow64
-          
-          cat <<EOF > packaging/profile.json
-          {
-            "type": "DXVK",
-            "versionName": "${{ env.VERSION_NAME }}",
-            "versionCode": 0,
-            "description": "Built on the Winlator WCP Hub (Upstream: Philip Rebohle, Patch: Ph42oN)",
-            "files": [
-              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
-              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
-              { "source": "system32/d3d8.dll", "target": "\${system32}/d3d8.dll" },
-              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
-              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
-              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
-              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
-              { "source": "syswow64/d3d8.dll", "target": "\${syswow64}/d3d8.dll" },
-              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
-              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
-            ]
-          }
-          EOF
-          
-          # WCP
-          tar -cJf dxvk-gplasync-${{ steps.version.outputs.commit }}.wcp -C packaging .
-          
-          # ZIP
-          cd packaging
-          zip -r ../dxvk-gplasync-${{ steps.version.outputs.commit }}.zip .
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dxvk-nightly
-          path: |
-            *.wcp
-            *.zip
-
-  # ==================================================================
-  # JOB 7: VKD3D-Proton (ARM64EC)
+  # JOB 9: VKD3D-Proton (ARM64EC)
   # ==================================================================
   build-vkd3d-arm64ec:
     name: Build VKD3D-Proton (ARM64EC)
@@ -555,15 +606,15 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       commit: ${{ steps.version.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
       - name: Install Dependencies
         run: |
-          sudo apt-get update -y
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ca-certificates curl xz-utils jq git zip \
-            build-essential python3 pkg-config zstd \
-            meson ninja-build wget unzip
+            ca-certificates curl xz-utils jq git build-essential \
+            python3 pkg-config zstd meson ninja-build wget unzip
 
-      - name: Setup GLSLANG
+      - name: Setup glslang
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
@@ -574,23 +625,24 @@ jobs:
           LLVM_MINGW_TAG="20251104"
           TOOLCHAIN_DIR="/opt/llvm-mingw"
           wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
-          sudo rm -rf "$TOOLCHAIN_DIR" && sudo mkdir -p "$TOOLCHAIN_DIR"
+          sudo mkdir -p "$TOOLCHAIN_DIR"
           sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
           echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
 
-      - name: Build ARM64EC
+      - name: Clone VKD3D
+        run: git clone --recursive https://github.com/HansKristian-Work/vkd3d-proton src
+
+      - name: Get Version
         id: version
         run: |
-          git clone --recursive https://github.com/HansKristian-Work/vkd3d-proton src
           cd src
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION_NAME="arm64ec-3.0b-${COMMIT_HASH}"
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
-          echo "version=${VERSION_NAME}" >> $GITHUB_OUTPUT
-          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
-          cd ..
-          
-          # (Skip creating cross files for brevity, same as previous)
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "version=3.0b-ARM64EC-${COMMIT}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=3.0b-ARM64EC-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
           cat <<EOF > arm64ec.txt
           [binaries]
           c = 'arm64ec-w64-mingw32-clang'
@@ -598,15 +650,12 @@ jobs:
           ar = 'llvm-ar'
           strip = 'llvm-strip'
           windres = 'arm64ec-w64-mingw32-windres'
-          widl = 'arm64ec-w64-mingw32-widl'
-          pkg-config = 'pkg-config'
           [host_machine]
           system = 'windows'
           cpu_family = 'aarch64'
           cpu = 'aarch64'
           endian = 'little'
           EOF
-
           cat <<EOF > x86.txt
           [binaries]
           c = 'i686-w64-mingw32-clang'
@@ -614,55 +663,31 @@ jobs:
           ar = 'llvm-ar'
           strip = 'llvm-strip'
           windres = 'i686-w64-mingw32-windres'
-          widl = 'i686-w64-mingw32-widl'
-          pkg-config = 'pkg-config'
           [host_machine]
           system = 'windows'
           cpu_family = 'x86'
           cpu = 'i686'
           endian = 'little'
           EOF
-
           cd src
           meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
-          ninja -C build-ec -j 2
+          ninja -C build-ec -j$(nproc)
           meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
-          ninja -C build-x86 -j 2
+          ninja -C build-x86 -j$(nproc)
 
       - name: Package
         run: |
-          rm -rf final_package && mkdir -p final_package/system32 final_package/syswow64
-          
-          find src/build-ec -name "d3d12.dll" -exec cp -L {} final_package/system32/ \;
-          find src/build-ec -name "d3d12core.dll" -exec cp -L {} final_package/system32/ \;
-          find src/build-x86 -name "d3d12.dll" -exec cp -L {} final_package/syswow64/ \;
-          find src/build-x86 -name "d3d12core.dll" -exec cp -L {} final_package/syswow64/ \;
-          
-          llvm-strip --strip-all final_package/system32/*.dll
-          llvm-strip --strip-all final_package/syswow64/*.dll
-
-          cat <<EOF > final_package/profile.json
-          {
-            "type": "VKD3D",
-            "versionName": "${{ env.VERSION_NAME }}",
-            "versionCode": 1,
-            "description": "${{ steps.version.outputs.commit }}",
-            "files": [
-              {"source": "system32/d3d12.dll", "target": "\${system32}/d3d12.dll"},
-              {"source": "system32/d3d12core.dll", "target": "\${system32}/d3d12core.dll"},
-              {"source": "syswow64/d3d12.dll", "target": "\${syswow64}/d3d12.dll"},
-              {"source": "syswow64/d3d12core.dll", "target": "\${syswow64}/d3d12core.dll"}
-            ]
-          }
-          EOF
-
-          cd final_package
+          mkdir -p packaging/system32 packaging/syswow64
+          cp src/build-ec/src/d3d12.dll packaging/system32/
+          cp src/build-ec/src/d3d12core.dll packaging/system32/
+          cp src/build-x86/src/d3d12.dll packaging/syswow64/
+          cp src/build-x86/src/d3d12core.dll packaging/syswow64/
           
           # WCP
-          tar --zstd -cf ../VKD3D-Proton-${{ env.VERSION_NAME }}.wcp *
+          tar --zstd -cf "VKD3D-Proton-${{ env.VERSION_NAME }}.wcp" -C packaging .
           
           # ZIP
-          zip -r ../VKD3D-Proton-${{ env.VERSION_NAME }}.zip *
+          zip -r "VKD3D-Proton-${{ env.VERSION_NAME }}.zip" packaging
 
       - uses: actions/upload-artifact@v4
         with:
@@ -672,54 +697,123 @@ jobs:
             *.zip
 
   # ==================================================================
-  # JOB 8: DXVK ARM64EC (GPLAsync)
+  # JOB 10: DXVK Nightly (GPLAsync)
   # ==================================================================
-  build-dxvk-arm64ec:
-    name: Build DXVK (ARM64EC)
-    runs-on: ubuntu-24.04
+  build-dxvk:
+    name: Build DXVK (GPLAsync)
+    runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
       commit: ${{ steps.version.outputs.commit }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            ca-certificates curl xz-utils jq git build-essential \
-            python3 pkg-config zstd meson ninja-build wget unzip zip
+          sudo apt-get install -y --no-install-recommends \
+            sudo mingw-w64 wget git xz-utils python3 ca-certificates meson ninja-build build-essential zip
 
-      - name: Setup Glslang
+      - name: Setup glslang
         run: |
           wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
           unzip -q glslang-master-linux-Release.zip -d glslang
           echo "$PWD/glslang/bin" >> $GITHUB_PATH
 
-      - name: Setup LLVM-MinGW
-        run: |
-          LLVM_MINGW_TAG="20251104"
-          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
-          tar -xf llvm.tar.xz
-          echo "$PWD/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
+      - name: Clone DXVK
+        run: git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
 
-      - name: Clone & Patch DXVK
+      - name: Get Version
         id: version
         run: |
-          git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
           cd dxvk
-          git fetch --tags
-          LATEST_TAG=$(git describe --tags --abbrev=0)
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION_NAME="${LATEST_TAG}-gplasync-arm64ec-${COMMIT_HASH}"
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
-          echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
-          echo "commit=$COMMIT_HASH" >> $GITHUB_OUTPUT
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "COMMIT_HASH=${COMMIT}" >> $GITHUB_ENV
+
+      - name: Apply GPLAsync
+        run: |
+          cd dxvk
           wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
           git apply dxvk-gplasync-master.patch
 
-      - name: Configure Cross-Files
+      - name: Build
+        run: |
+          cd dxvk
+          ./package-release.sh master ../dxvk-built --no-package
+
+      - name: Package
+        run: |
+          mkdir -p packaging/system32 packaging/syswow64
+          cp dxvk-built/dxvk-master/x64/*.dll packaging/system32/
+          cp dxvk-built/dxvk-master/x32/*.dll packaging/syswow64/
+          echo '{"type": "DXVK", "versionName": "2.7.1-gplasync-${{ env.COMMIT_HASH }}", "versionCode": 0, "description": "DXVK GPLAsync", "files": [{"source": "system32/d3d11.dll", "target": "${system32}/d3d11.dll"}]}' > packaging/profile.json
+          
+          # ZIP
+          zip -r "dxvk-gplasync-${{ env.COMMIT_HASH }}.zip" packaging
+          
+          # WCP
+          tar -cJf "dxvk-gplasync-${{ env.COMMIT_HASH }}.wcp" -C packaging .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-nightly
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
+  # JOB 11: DXVK (ARM64EC)
+  # ==================================================================
+  build-dxvk-arm64ec:
+    name: Build DXVK (ARM64EC)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl xz-utils jq git build-essential \
+            python3 pkg-config zstd meson ninja-build wget unzip zip
+
+      - name: Setup glslang
+        run: |
+          wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
+          unzip -q glslang-master-linux-Release.zip -d glslang
+          echo "$PWD/glslang/bin" >> $GITHUB_PATH
+
+      - name: Setup Toolchain
+        run: |
+          LLVM_MINGW_TAG="20251104"
+          TOOLCHAIN_DIR="/opt/llvm-mingw"
+          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
+          sudo mkdir -p "$TOOLCHAIN_DIR"
+          sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
+          echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
+
+      - name: Clone DXVK
+        run: git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
+
+      - name: Get Version
+        id: version
+        run: |
+          cd dxvk
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "version=${LATEST_TAG}-ARM64EC-${COMMIT}" >> $GITHUB_OUTPUT
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=${LATEST_TAG}-ARM64EC-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Apply GPLAsync
+        run: |
+          cd dxvk
+          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
+          git apply dxvk-gplasync-master.patch
+
+      - name: Build
         run: |
           cat <<EOF > arm64ec.txt
           [binaries]
@@ -728,15 +822,12 @@ jobs:
           ar = 'llvm-ar'
           strip = 'llvm-strip'
           windres = 'arm64ec-w64-mingw32-windres'
-          widl = 'arm64ec-w64-mingw32-widl'
-          pkg-config = 'pkg-config'
           [host_machine]
           system = 'windows'
           cpu_family = 'aarch64'
           cpu = 'aarch64'
           endian = 'little'
           EOF
-
           cat <<EOF > x86.txt
           [binaries]
           c = 'i686-w64-mingw32-clang'
@@ -744,63 +835,30 @@ jobs:
           ar = 'llvm-ar'
           strip = 'llvm-strip'
           windres = 'i686-w64-mingw32-windres'
-          widl = 'i686-w64-mingw32-widl'
-          pkg-config = 'pkg-config'
           [host_machine]
           system = 'windows'
           cpu_family = 'x86'
           cpu = 'i686'
           endian = 'little'
           EOF
-
-      - name: Build
-        run: |
           cd dxvk
           meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-ec -j$(nproc)
           meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
-          ninja -C build-ec -j 2
-          ninja -C build-x86 -j 2
+          ninja -C build-x86 -j$(nproc)
 
       - name: Package
         run: |
-          mkdir -p packaging/system32
-          mkdir -p packaging/syswow64
-          
-          # Copy DLLs
-          copy_dll() {
-            SRC_DIR=$1
-            DEST_DIR=$2
-            cp "dxvk/$SRC_DIR/src/d3d11/d3d11.dll" "$DEST_DIR/"
-            cp "dxvk/$SRC_DIR/src/d3d10/d3d10core.dll" "$DEST_DIR/"
-            cp "dxvk/$SRC_DIR/src/d3d9/d3d9.dll" "$DEST_DIR/"
-            cp "dxvk/$SRC_DIR/src/d3d8/d3d8.dll" "$DEST_DIR/" || true 
-            cp "dxvk/$SRC_DIR/src/dxgi/dxgi.dll" "$DEST_DIR/"
-          }
-          copy_dll "build-ec" "packaging/system32"
-          copy_dll "build-x86" "packaging/syswow64"
-          llvm-strip --strip-all packaging/system32/*.dll
-          llvm-strip --strip-all packaging/syswow64/*.dll
-
-          cat <<EOF > packaging/profile.json
-          {
-            "type": "DXVK",
-            "versionName": "${{ env.VERSION_NAME }}",
-            "versionCode": 0,
-            "description": "Built on the Winlator WCP Hub (Upstream: Philip Rebohle, Patch: Ph42oN)",
-            "files": [
-              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
-              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
-              { "source": "system32/d3d8.dll", "target": "\${system32}/d3d8.dll" },
-              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
-              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
-              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
-              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
-              { "source": "syswow64/d3d8.dll", "target": "\${syswow64}/d3d8.dll" },
-              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
-              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
-            ]
-          }
-          EOF
+          mkdir -p packaging/system32 packaging/syswow64
+          cp dxvk/build-ec/src/d3d11/d3d11.dll packaging/system32/
+          cp dxvk/build-ec/src/d3d10/d3d10core.dll packaging/system32/
+          cp dxvk/build-ec/src/d3d9/d3d9.dll packaging/system32/
+          cp dxvk/build-ec/src/dxgi/dxgi.dll packaging/system32/
+          cp dxvk/build-x86/src/d3d11/d3d11.dll packaging/syswow64/
+          cp dxvk/build-x86/src/d3d10/d3d10core.dll packaging/syswow64/
+          cp dxvk/build-x86/src/d3d9/d3d9.dll packaging/syswow64/
+          cp dxvk/build-x86/src/dxgi/dxgi.dll packaging/syswow64/
+          echo '{"type": "DXVK", "versionName": "${{ env.VERSION_NAME }}", "versionCode": 1, "description": "DXVK ARM64EC", "files": [{"source": "system32/d3d11.dll", "target": "${system32}/d3d11.dll"}]}' > packaging/profile.json
           
           # WCP
           tar --zstd -cf ../DXVK-ARM64EC-${{ env.VERSION_NAME }}.wcp -C packaging .
@@ -817,12 +875,23 @@ jobs:
             *.zip
 
   # ==================================================================
-  # JOB 9: Release
+  # JOB 12: Release
   # ==================================================================
   create-release:
     name: Create Nightly Release
     runs-on: ubuntu-latest
-    needs: [build-box64, build-box64-bionic, build-wowbox64, build-fex, build-vkd3d, build-dxvk, build-vkd3d-arm64ec, build-dxvk-arm64ec]
+    needs: 
+      - build-box64
+      - build-box64-bionic
+      - build-hybrid-native
+      - build-hybrid-bionic
+      - build-wowbox64
+      - build-hybrid-wow64
+      - build-fex
+      - build-vkd3d
+      - build-dxvk
+      - build-vkd3d-arm64ec
+      - build-dxvk-arm64ec
     permissions:
       contents: write
     steps:
@@ -849,7 +918,10 @@ jobs:
             | :--- | :--- |
             | **Box64 (Native)** | [${{ needs.build-box64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64.outputs.commit }}) |
             | **Box64 (Bionic)** | [${{ needs.build-box64-bionic.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-box64-bionic.outputs.commit }}) |
+            | **Box64 (Hybrid Native)** | [${{ needs.build-hybrid-native.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-hybrid-native.outputs.commit }}) |
+            | **Box64 (Hybrid Bionic)** | [${{ needs.build-hybrid-bionic.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-hybrid-bionic.outputs.commit }}) |
             | **WOWBox64** | [${{ needs.build-wowbox64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-wowbox64.outputs.commit }}) |
+            | **WOWBox64 (Hybrid)** | [${{ needs.build-hybrid-wow64.outputs.version }}](https://github.com/ptitSeb/box64/commit/${{ needs.build-hybrid-wow64.outputs.commit }}) |
             | **FEXCore** | [${{ needs.build-fex.outputs.version }}](https://github.com/FEX-Emu/FEX/commit/${{ needs.build-fex.outputs.commit }}) |
             | **VKD3D-Proton (Std)** | [${{ needs.build-vkd3d.outputs.version }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d.outputs.commit }}) |
             | **VKD3D-Proton (ARM64EC)** | [${{ needs.build-vkd3d-arm64ec.outputs.version }}](https://github.com/HansKristian-Work/vkd3d-proton/commit/${{ needs.build-vkd3d-arm64ec.outputs.commit }}) |
@@ -857,14 +929,12 @@ jobs:
             | **DXVK (ARM64EC)** | [${{ needs.build-dxvk-arm64ec.outputs.version }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk-arm64ec.outputs.commit }}) |
             
             ### 📦 Files Included
-            1. **Box64 Native**: `box64-*.wcp` (and `.zip`)
-            2. **Box64 Bionic**: `box64-bionic-*.wcp` (and `.zip`)
-            3. **WOWBox64**: `WOWBox64-*.wcp` (and `.zip`)
-            4. **FEXCore**: `FEX-*.wcp` (and `.zip`)
-            5. **VKD3D-Proton (Std)**: `VKD3D-Proton-3.0b*.wcp` (and `.zip`)
-            6. **VKD3D-Proton (ARM64EC)**: `VKD3D-Proton-3.0b-ARM64EC*.wcp` (and `.zip`)
-            7. **DXVK**: `dxvk-gplasync-*.wcp` (and `.zip`)
-            8. **DXVK (ARM64EC)**: `DXVK-ARM64EC-*.wcp` (and `.zip`)
+            1. **Box64 Native / Hybrid**: `box64-*.wcp`, `Box64-Hybrid-*.wcp`
+            2. **Box64 Bionic / Hybrid**: `box64-bionic-*.wcp`, `Box64-Hybrid-Bionic-*.wcp`
+            3. **WOWBox64 / Hybrid**: `WOWBox64-*.wcp`, `WOWBox64-Hybrid-*.wcp`
+            4. **FEXCore**: `FEX-*.wcp`
+            5. **VKD3D-Proton**: `VKD3D-Proton-*.wcp`
+            6. **DXVK**: `dxvk-gplasync-*.wcp`, `DXVK-ARM64EC-*.wcp`
             
             _These files are packaged for use with Winlator._
           files: |
@@ -893,7 +963,10 @@ jobs:
           name: |
             box64-native
             box64-bionic
+            hybrid-native
+            hybrid-bionic
             wowbox64-mingw
+            hybrid-wow64
             fex-nightly
             dxvk-nightly
             dxvk-arm64ec
