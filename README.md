@@ -86,7 +86,11 @@ https://github.com/Arihany/WinlatorWCPHub
 
 
 ---
-### 📺 Latest Emulation & Tech Videos from The412Banner
+# My Emulation Repo
+This project contains components for PC emulation on Android.
+
+## 📺 Latest Testing from The412Banner
+## Installation
 
 ---
 <br>
