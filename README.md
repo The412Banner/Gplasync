@@ -2,6 +2,7 @@
   <img src="/img.png" width="500" title="hover text">
 </p>
 
+---
 
 <h1 align="center">The412Banner Nightly Repo for Winlator Emulation</h1>
 
@@ -83,6 +84,9 @@ https://github.com/Arihany/WinlatorWCPHub
 
 </details>
 
+
+---
+### 📺 Latest from The412Banner
 ---
 <br>
 <h3 align="center"> Credits </h3>
