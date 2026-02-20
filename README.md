@@ -12,6 +12,8 @@ Arihany repo can be found here:
 
 https://github.com/Arihany/WinlatorWCPHub 
 
+> Nightly Worlfow runs and Updates daily at 03:30 AM EST / 08:30 AM UST
+
 ---
 
 A very informative site to keep users up to date on emulators: 
@@ -68,7 +70,6 @@ https://discord.gg/emuready-1380826875961540648
 > 
 > </details>
 > <br>
-> Nightly Worlfow runs and Updates daily at 03:30 AM EST / 08:30 AM UST
 
 ---
 
