@@ -12,7 +12,7 @@ Arihany repo can be found here:
 
 https://github.com/Arihany/WinlatorWCPHub 
 
-> Nightly Worlfow runs and Updates daily at 03:30 AM EST / 08:30 AM UST
+> Nightly Worlfow runs and Updates hourly and daily at 03:30 AM EST / 08:30 AM UST
 
 ---
 
@@ -27,6 +27,10 @@ https://github.com/The412Banner/Banners-No-PC-Retroid-Overclock
 My repo to help rooting your Ayaneo Konkr Pocket Fit: 
 
 https://github.com/The412Banner/Ayaneo-PocketFit-tools
+
+xNick417x Winlator Bionic Nightly WCP Repo
+
+https://github.com/Xnick417x/Winlator-Bionic-Nightly-wcp
 
 ---
 
