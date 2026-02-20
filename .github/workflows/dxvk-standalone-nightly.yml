@@ -1,0 +1,547 @@
+name: DXVK Standalone Nightlies
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # ==================================================================
+  # JOB 1: DXVK Nightly (Standard)
+  # ==================================================================
+  build-dxvk:
+    name: Build DXVK (GPLAsync)
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 wget git xz-utils python3 meson ninja-build build-essential unzip zip
+
+      - name: Setup GLSLANG
+        run: |
+          wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
+          unzip -q glslang-master-linux-Release.zip -d glslang
+          echo "$PWD/glslang/bin" >> $GITHUB_PATH
+
+      - name: Build DXVK
+        id: version
+        run: |
+          git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
+          cd dxvk
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          VERSION_NAME="${LATEST_TAG}-gplasync-${COMMIT_HASH}"
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+          
+          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
+          git apply dxvk-gplasync-master.patch
+          
+          sed -i 's/ninja/ninja -j 2/g' package-release.sh
+          ./package-release.sh master ../dxvk-built --no-package
+
+      - name: Package
+        run: |
+          mkdir -p packaging
+          cp -r dxvk-built/dxvk-master/x64 packaging/system32
+          cp -r dxvk-built/dxvk-master/x32 packaging/syswow64
+          
+          cat <<EOF > packaging/profile.json
+          {
+            "type": "DXVK",
+            "versionName": "${{ env.VERSION_NAME }}",
+            "versionCode": 0,
+            "description": "Banners Repo (Upstream: Philip Rebohle, Patch: Ph42oN)",
+            "files": [
+              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
+              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
+              { "source": "system32/d3d8.dll", "target": "\${system32}/d3d8.dll" },
+              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
+              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
+              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
+              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
+              { "source": "syswow64/d3d8.dll", "target": "\${syswow64}/d3d8.dll" },
+              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
+              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
+            ]
+          }
+          EOF
+          
+          # WCP
+          tar -cJf dxvk-gplasync-${{ steps.version.outputs.commit }}.wcp -C packaging .
+          
+          # ZIP
+          cd packaging
+          zip -r ../dxvk-gplasync-${{ steps.version.outputs.commit }}.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-nightly
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
+  # JOB 2: DXVK ARM64EC (GPLAsync)
+  # ==================================================================
+  build-dxvk-arm64ec:
+    name: Build DXVK (ARM64EC)
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates curl xz-utils jq git build-essential \
+            python3 pkg-config zstd meson ninja-build wget unzip zip
+
+      - name: Setup Glslang
+        run: |
+          wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
+          unzip -q glslang-master-linux-Release.zip -d glslang
+          echo "$PWD/glslang/bin" >> $GITHUB_PATH
+
+      - name: Setup LLVM-MinGW
+        run: |
+          LLVM_MINGW_TAG="20251104"
+          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
+          tar -xf llvm.tar.xz
+          echo "$PWD/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Clone & Patch DXVK
+        id: version
+        run: |
+          git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
+          cd dxvk
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          VERSION_NAME="${LATEST_TAG}-gplasync-arm64ec-${COMMIT_HASH}"
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT_HASH" >> $GITHUB_OUTPUT
+          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
+          git apply dxvk-gplasync-master.patch
+
+      - name: Configure Cross-Files
+        run: |
+          cat <<EOF > arm64ec.txt
+          [binaries]
+          c = 'arm64ec-w64-mingw32-clang'
+          cpp = 'arm64ec-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'arm64ec-w64-mingw32-windres'
+          widl = 'arm64ec-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          EOF
+
+          cat <<EOF > x86.txt
+          [binaries]
+          c = 'i686-w64-mingw32-clang'
+          cpp = 'i686-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'i686-w64-mingw32-windres'
+          widl = 'i686-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
+          EOF
+
+      - name: Build
+        run: |
+          cd dxvk
+          meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
+          meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-ec -j 2
+          ninja -C build-x86 -j 2
+
+      - name: Package
+        run: |
+          mkdir -p packaging/system32
+          mkdir -p packaging/syswow64
+          
+          # Copy DLLs
+          copy_dll() {
+            SRC_DIR=$1
+            DEST_DIR=$2
+            cp "dxvk/$SRC_DIR/src/d3d11/d3d11.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d10/d3d10core.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d9/d3d9.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d8/d3d8.dll" "$DEST_DIR/" || true 
+            cp "dxvk/$SRC_DIR/src/dxgi/dxgi.dll" "$DEST_DIR/"
+          }
+          copy_dll "build-ec" "packaging/system32"
+          copy_dll "build-x86" "packaging/syswow64"
+          llvm-strip --strip-all packaging/system32/*.dll
+          llvm-strip --strip-all packaging/syswow64/*.dll
+
+          cat <<EOF > packaging/profile.json
+          {
+            "type": "DXVK",
+            "versionName": "${{ env.VERSION_NAME }}",
+            "versionCode": 0,
+            "description": "Banners Repo (Upstream: Philip Rebohle, Patch: Ph42oN)",
+            "files": [
+              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
+              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
+              { "source": "system32/d3d8.dll", "target": "\${system32}/d3d8.dll" },
+              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
+              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
+              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
+              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
+              { "source": "syswow64/d3d8.dll", "target": "\${syswow64}/d3d8.dll" },
+              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
+              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
+            ]
+          }
+          EOF
+          
+          cd packaging
+          
+          # WCP
+          tar --zstd -cf ../DXVK-ARM64EC-${{ env.VERSION_NAME }}.wcp .
+          
+          # ZIP
+          zip -r ../DXVK-ARM64EC-${{ env.VERSION_NAME }}.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-arm64ec
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
+  # JOB 3: DXVK+NVAPI (Combined Standard)
+  # ==================================================================
+  build-dxvk-nvapi-combined:
+    name: Build DXVK+NVAPI (Standard Combined)
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 wget git xz-utils python3 meson ninja-build build-essential unzip zip glslang-tools
+
+      - name: Clone DXVK & Apply Patch
+        id: version
+        run: |
+          git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
+          cd dxvk
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
+          git apply dxvk-gplasync-master.patch
+          # Build DXVK
+          sed -i 's/ninja/ninja -j 2/g' package-release.sh
+          ./package-release.sh master ../dxvk-built --no-package
+
+      - name: Build DXVK-NVAPI
+        run: |
+          git clone --recursive https://github.com/jp7677/dxvk-nvapi.git nvapi-src
+          
+          cat <<EOF > cross-x64.txt
+          [binaries]
+          c = 'x86_64-w64-mingw32-gcc'
+          cpp = 'x86_64-w64-mingw32-g++'
+          ar = 'x86_64-w64-mingw32-ar'
+          strip = 'x86_64-w64-mingw32-strip'
+          windres = 'x86_64-w64-mingw32-windres'
+          widl = 'x86_64-w64-mingw32-widl'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86_64'
+          cpu = 'x86_64'
+          endian = 'little'
+          EOF
+
+          cat <<EOF > cross-x86.txt
+          [binaries]
+          c = 'i686-w64-mingw32-gcc'
+          cpp = 'i686-w64-mingw32-g++'
+          ar = 'i686-w64-mingw32-ar'
+          strip = 'i686-w64-mingw32-strip'
+          windres = 'i686-w64-mingw32-windres'
+          widl = 'i686-w64-mingw32-widl'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
+          EOF
+
+          cd nvapi-src
+          meson setup build-x64 --cross-file ../cross-x64.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-x64 -j 2
+          meson setup build-x86 --cross-file ../cross-x86.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-x86 -j 2
+
+      - name: Package Combined WCP
+        run: |
+          mkdir -p packaging/system32 packaging/syswow64
+          
+          # Copy DXVK DLLs
+          cp dxvk-built/dxvk-master/x64/*.dll packaging/system32/
+          cp dxvk-built/dxvk-master/x32/*.dll packaging/syswow64/
+          
+          # Copy and rename NVAPI DLLs
+          find nvapi-src/build-x64 -name "nvapi*.dll" -exec cp -L {} packaging/system32/nvapi64.dll \;
+          find nvapi-src/build-x86 -name "nvapi*.dll" -exec cp -L {} packaging/syswow64/nvapi.dll \;
+          
+          # Create Winlator Profile
+          cat <<EOF > packaging/profile.json
+          {
+            "type": "DXVK",
+            "versionName": "dxvk-nvapi-gplasync-${{ steps.version.outputs.commit }}",
+            "versionCode": 0,
+            "description": "DXVK GPLAsync + NVAPI Nightly",
+            "files": [
+              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
+              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
+              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
+              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
+              { "source": "system32/nvapi64.dll", "target": "\${system32}/nvapi64.dll" },
+              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
+              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
+              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
+              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" },
+              { "source": "syswow64/nvapi.dll", "target": "\${syswow64}/nvapi.dll" }
+            ]
+          }
+          EOF
+          
+          tar -cJf dxvk-nvapi-gplasync-${{ steps.version.outputs.commit }}.wcp -C packaging .
+          cd packaging && zip -r ../dxvk-nvapi-gplasync-${{ steps.version.outputs.commit }}.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-nvapi-combined
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
+  # JOB 4: DXVK+NVAPI (Combined ARM64EC)
+  # ==================================================================
+  build-dxvk-nvapi-arm64ec-combined:
+    name: Build DXVK+NVAPI (ARM64EC Combined)
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates curl xz-utils jq git build-essential \
+            python3 pkg-config zstd meson ninja-build wget unzip zip glslang-tools
+
+      - name: Setup Glslang
+        run: |
+          wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
+          unzip -q glslang-master-linux-Release.zip -d glslang
+          echo "$PWD/glslang/bin" >> $GITHUB_PATH
+
+      - name: Setup LLVM-MinGW
+        run: |
+          LLVM_MINGW_TAG="20251104"
+          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
+          tar -xf llvm.tar.xz
+          echo "$PWD/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Clone DXVK & Apply Patch
+        id: version
+        run: |
+          git clone --recursive https://github.com/doitsujin/dxvk.git dxvk
+          cd dxvk
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-master.patch
+          git apply dxvk-gplasync-master.patch
+
+      - name: Clone DXVK-NVAPI
+        run: git clone --recursive https://github.com/jp7677/dxvk-nvapi.git dxvk-nvapi
+
+      - name: Configure Cross-Files
+        run: |
+          cat <<EOF > arm64ec.txt
+          [binaries]
+          c = 'arm64ec-w64-mingw32-clang'
+          cpp = 'arm64ec-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'arm64ec-w64-mingw32-windres'
+          widl = 'arm64ec-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          EOF
+
+          cat <<EOF > x86.txt
+          [binaries]
+          c = 'i686-w64-mingw32-clang'
+          cpp = 'i686-w64-mingw32-clang++'
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'i686-w64-mingw32-windres'
+          widl = 'i686-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
+          EOF
+
+      - name: Build DXVK
+        run: |
+          cd dxvk
+          meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
+          meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-ec -j 2
+          ninja -C build-x86 -j 2
+
+      - name: Build DXVK-NVAPI
+        run: |
+          cd dxvk-nvapi
+          meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
+          meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-ec -j 2
+          ninja -C build-x86 -j 2
+
+      - name: Package ARM64EC Combined WCP
+        run: |
+          mkdir -p packaging/system32 packaging/syswow64
+          
+          # Copy DXVK DLLs
+          cp dxvk/build-ec/src/d3d11/d3d11.dll packaging/system32/
+          cp dxvk/build-ec/src/d3d10/d3d10core.dll packaging/system32/
+          cp dxvk/build-ec/src/d3d9/d3d9.dll packaging/system32/
+          cp dxvk/build-ec/src/d3d8/d3d8.dll packaging/system32/ || true
+          cp dxvk/build-ec/src/dxgi/dxgi.dll packaging/system32/
+          
+          cp dxvk/build-x86/src/d3d11/d3d11.dll packaging/syswow64/
+          cp dxvk/build-x86/src/d3d10/d3d10core.dll packaging/syswow64/
+          cp dxvk/build-x86/src/d3d9/d3d9.dll packaging/syswow64/
+          cp dxvk/build-x86/src/d3d8/d3d8.dll packaging/syswow64/ || true
+          cp dxvk/build-x86/src/dxgi/dxgi.dll packaging/syswow64/
+          
+          # Copy and rename NVAPI DLLs
+          find dxvk-nvapi/build-ec -name "nvapi*.dll" -exec cp -L {} packaging/system32/nvapi64.dll \;
+          find dxvk-nvapi/build-x86 -name "nvapi*.dll" -exec cp -L {} packaging/syswow64/nvapi.dll \;
+          
+          llvm-strip --strip-all packaging/system32/*.dll
+          llvm-strip --strip-all packaging/syswow64/*.dll
+          
+          cat <<EOF > packaging/profile.json
+          {
+            "type": "DXVK",
+            "versionName": "dxvk-nvapi-gplasync-arm64ec-${{ steps.version.outputs.commit }}",
+            "versionCode": 0,
+            "description": "DXVK GPLAsync + NVAPI ARM64EC Nightly",
+            "files": [
+              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
+              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
+              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
+              { "source": "system32/d3d8.dll", "target": "\${system32}/d3d8.dll" },
+              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
+              { "source": "system32/nvapi64.dll", "target": "\${system32}/nvapi64.dll" },
+              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
+              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
+              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
+              { "source": "syswow64/d3d8.dll", "target": "\${syswow64}/d3d8.dll" },
+              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" },
+              { "source": "syswow64/nvapi.dll", "target": "\${syswow64}/nvapi.dll" }
+            ]
+          }
+          EOF
+          
+          tar --zstd -cf DXVK-NVAPI-ARM64EC-${{ steps.version.outputs.commit }}.wcp -C packaging .
+          cd packaging && zip -r ../DXVK-NVAPI-ARM64EC-${{ steps.version.outputs.commit }}.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-nvapi-arm64ec-combined
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
+  # JOB 5: Release
+  # ==================================================================
+  create-release:
+    name: Create Nightly Release
+    runs-on: ubuntu-latest
+    needs: [build-dxvk, build-dxvk-arm64ec, build-dxvk-nvapi-combined, build-dxvk-nvapi-arm64ec-combined]
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: Set Release Variables
+        run: |
+          # Create a tag-safe timestamp (e.g., 20231025-090000)
+          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+          # Create a human-readable date for the title (e.g., 2023-10-25 09:00:00 UTC)
+          READABLE_DATE=$(date +'%Y-%m-%d %H:%M:%S UTC')
+          
+          echo "TAG_NAME=dxvk-nightly-$TIMESTAMP" >> $GITHUB_ENV
+          echo "RELEASE_NAME=DXVK Nightly Build - $READABLE_DATE" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.RELEASE_NAME }}
+          prerelease: false
+          make_latest: true
+          body: |
+            ### 🚀 DXVK Nightly Build: ${{ env.TAG_NAME }}
+            
+            | Component | Source / Commit |
+            | :--- | :--- |
+            | **DXVK (GPLAsync)** | [${{ needs.build-dxvk.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk.outputs.commit }}) |
+            | **DXVK (ARM64EC)** | [${{ needs.build-dxvk-arm64ec.outputs.version }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk-arm64ec.outputs.commit }}) |
+            | **DXVK+NVAPI (Combined)** | [${{ needs.build-dxvk-nvapi-combined.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk-nvapi-combined.outputs.commit }}) |
+            | **DXVK+NVAPI (ARM64EC Combined)** | [${{ needs.build-dxvk-nvapi-arm64ec-combined.outputs.commit }}](https://github.com/doitsujin/dxvk/commit/${{ needs.build-dxvk-nvapi-arm64ec-combined.outputs.commit }}) |
+            
+            ### 📦 Files Included
+            1. **DXVK**: `dxvk-gplasync-*.wcp` (and `.zip`)
+            2. **DXVK (ARM64EC)**: `DXVK-ARM64EC-*.wcp` (and `.zip`)
+            3. **DXVK+NVAPI (Combined)**: `dxvk-nvapi-gplasync-*.wcp` (and `.zip`)
+            4. **DXVK+NVAPI (ARM64EC Combined)**: `DXVK-NVAPI-ARM64EC-*.wcp` (and `.zip`)
+            
+            **The .wcp files are packaged for use with Winlator**
+            **The .zip files are packaged for manual injection with Gamehub**
+          files: |
+            ./artifacts/*.wcp
+            ./artifacts/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

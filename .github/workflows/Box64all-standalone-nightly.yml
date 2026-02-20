@@ -1,0 +1,225 @@
+name: Box64 Standalone Nightlies
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # ==================================================================
+  # JOB 1: Box64 Matrix (All 6 Variants)
+  # ==================================================================
+  build-box64-matrix:
+    name: Build Box64 ${{ matrix.source }} (${{ matrix.type }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        type: [Native, Bionic, WOW64]
+        source: [Official, Hybrid]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake make python3 p7zip-full wget tar file unzip xz-utils zip
+
+      # --- CACHE BLOCKS ---
+      - name: Cache Android NDK
+        if: matrix.type != 'WOW64'
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/android-ndk-r26b
+          key: android-ndk-r26b-linux
+
+      - name: Cache LLVM-MinGW (WOW64)
+        if: matrix.type == 'WOW64'
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/llvm-mingw-20240619-ucrt-ubuntu-20.04-x86_64
+          key: llvm-mingw-20240619
+      # --------------------
+
+      - name: Setup Toolchain (Android)
+        if: matrix.type != 'WOW64'
+        run: |
+          if [ ! -d "$PWD/android-ndk-r26b" ]; then
+            echo "Cache miss: Downloading NDK..."
+            wget -q https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+            unzip -q android-ndk-r26b-linux.zip
+          else
+            echo "Cache hit: NDK found!"
+          fi
+          
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26b" >> $GITHUB_ENV
+          if [ "${{ matrix.type }}" == "Bionic" ]; then
+            echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang" >> $GITHUB_ENV
+          else
+            echo "BOX64_COMPILER=$PWD/android-ndk-r26b/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Toolchain (WOW64 MinGW)
+        if: matrix.type == 'WOW64'
+        run: |
+          LLVM_MINGW_VERSION=20240619
+          if [ ! -d "$PWD/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64" ]; then
+            echo "Cache miss: Downloading LLVM-MinGW..."
+            wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz
+            tar -xf llvm-mingw-*.tar.xz
+          else
+            echo "Cache hit: LLVM-MinGW found!"
+          fi
+          
+          echo "MINGW_PATH=$PWD/$(ls -d llvm-mingw-* | head -n 1)/bin" >> $GITHUB_ENV
+
+      - name: Clone & Merge Source
+        run: |
+          git clone https://github.com/ptitSeb/box64 source
+          cd source
+          
+          if [ "${{ matrix.source }}" == "Hybrid" ]; then
+            git remote add pipetto https://github.com/Pipetto-crypto/box64
+            git fetch pipetto
+            git config user.email "action@github.com"
+            git config user.name "GitHub Action"
+            git merge pipetto/main --no-edit || { echo "MERGE FAILED"; exit 1; }
+          fi
+          
+          if [ "${{ matrix.type }}" == "WOW64" ]; then
+            mkdir -p wine/common
+            echo -e '\nint __mingw_vsprintf(char* buffer, const char* format, va_list args) { return vsprintf(buffer, format, args); }' >> wine/common/crt.c
+          fi
+
+      - name: Get Version Info
+        id: version
+        run: |
+          cd source
+          COMMIT=$(git rev-parse --short HEAD)
+          
+          if [ "${{ matrix.source }}" == "Official" ]; then
+            MAJOR=$(grep '#define BOX64_MAJOR' src/box64version.h | awk '{print $3}')
+            MINOR=$(grep '#define BOX64_MINOR' src/box64version.h | awk '{print $3}')
+            REVISION=$(grep '#define BOX64_REVISION' src/box64version.h | awk '{print $3}')
+            echo "FULL_VERSION=Box64-${MAJOR}.${MINOR}.${REVISION}-${COMMIT}-${{ matrix.type }}" >> $GITHUB_ENV
+          else
+            echo "FULL_VERSION=Box64-Hybrid-${{ matrix.type }}-${COMMIT}" >> $GITHUB_ENV
+          fi
+
+      - name: Configure and Build
+        run: |
+          mkdir build && cd build
+          
+          if [ "${{ matrix.type }}" == "WOW64" ]; then
+            export PATH=$PATH:${{ env.MINGW_PATH }}
+            cmake ../source \
+              -DCMAKE_C_COMPILER=aarch64-w64-mingw32-gcc \
+              -DWOW64=1 -DARM_DYNAREC=1 -DCMAKE_BUILD_TYPE=Release
+            make -j$(nproc) wowbox64
+          else
+            if [ "${{ matrix.type }}" == "Bionic" ]; then
+              CMAKE_ARGS="-DBIONIC=1 -DTERMUX=0 -DHAVE_TRACE=0"
+            else
+              CMAKE_ARGS=""
+            fi
+            
+            cmake ../source \
+              -DCMAKE_C_COMPILER=${{ env.BOX64_COMPILER }} \
+              -DANDROID=1 -DARM_DYNAREC=1 -DBAD_SIGNAL=1 -DCMAKE_BUILD_TYPE=Release $CMAKE_ARGS
+            make -j$(nproc)
+            
+            if [ "${{ matrix.type }}" == "Bionic" ]; then
+              readelf -d box64 | grep -q "NEEDED.*libc.so" || { echo "Linking failed!"; exit 1; }
+            fi
+            
+            ${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip box64
+          fi
+
+      - name: Package
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/dist
+          
+          if [ "${{ matrix.type }}" == "WOW64" ]; then
+            cd build/wowbox64-prefix/src/wowbox64-build
+            echo '{"type": "WOWBox64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "WOWBox64 ${{ matrix.source }}", "files": [{"source": "system32/wowbox64.dll", "target": "${system32}/wowbox64.dll"}]}' > profile.json
+            
+            mkdir -p system32 && cp wowbox64.dll system32/
+            tar -cJf "${{ env.FULL_VERSION }}.wcp" system32 profile.json
+            zip -r "${{ env.FULL_VERSION }}.zip" system32 profile.json
+            
+            mv *.wcp *.zip $GITHUB_WORKSPACE/dist/
+          else
+            cd build
+            echo '{"type": "Box64", "versionName": "${{ env.FULL_VERSION }}", "versionCode": 0, "description": "Box64 ${{ matrix.source }} ${{ matrix.type }}", "files": [{"source": "box64", "target": "${bindir}/box64"}]}' > profile.json
+            
+            mkdir pkg_content
+            cp box64 profile.json pkg_content/
+            
+            cd pkg_content
+            zip -r "../${{ env.FULL_VERSION }}.zip" .
+            tar -cf ../temp.tar .
+            cd ..
+            xz -9 -c temp.tar > "${{ env.FULL_VERSION }}.wcp"
+            
+            mv *.wcp *.zip $GITHUB_WORKSPACE/dist/
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box64-${{ matrix.source }}-${{ matrix.type }}
+          path: dist/*
+
+  # ==================================================================
+  # JOB 2: Release
+  # ==================================================================
+  create-release:
+    name: Create Nightly Release
+    runs-on: ubuntu-latest
+    needs: [build-box64-matrix]
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: Set Release Variables
+        run: |
+          # Create a tag-safe timestamp (e.g., 20231025-090000)
+          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+          # Create a human-readable date for the title (e.g., 2023-10-25 09:00:00 UTC)
+          READABLE_DATE=$(date +'%Y-%m-%d %H:%M:%S UTC')
+          
+          echo "TAG_NAME=box64-nightly-$TIMESTAMP" >> $GITHUB_ENV
+          echo "RELEASE_NAME=Box64 Nightly Build - $READABLE_DATE" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.RELEASE_NAME }}
+          prerelease: false
+          make_latest: true
+          body: |
+            ### 🚀 Box64 Nightly Build: ${{ env.TAG_NAME }}
+            
+            | Component | Source / Commit |
+            | :--- | :--- |
+            | **Box64 (All Variants)** | [ptitSeb/main](https://github.com/ptitSeb/box64/commits/main) |
+            | **Box64 Hybrid (All Variants)** | [Pipetto/main](https://github.com/Pipetto-crypto/box64/commits/main) |
+            
+            ### 📦 Files Included
+            1. **Box64 Native**: `box64-*.wcp` (and `.zip`)
+            2. **Box64 Bionic**: `box64-bionic-*.wcp` (and `.zip`)
+            3. **WOWBox64**: `WOWBox64-*.wcp` (and `.zip`)
+            4. **Box64 Hybrid Native**: `Box64-Hybrid-Native-*.wcp` (and `.zip`)
+            5. **Box64 Hybrid Bionic**: `Box64-Hybrid-Bionic-*.wcp` (and `.zip`)
+            6. **WOWBox64 Hybrid**: `WOWBox64-Hybrid-*.wcp` (and `.zip`)
+            
+            **The .wcp files are packaged for use with Winlator**
+            **The .zip files are packaged for manual injection with Gamehub**
+          files: |
+            ./artifacts/*.wcp
+            ./artifacts/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
