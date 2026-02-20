@@ -943,7 +943,9 @@ jobs:
             11. **DXVK ARM64EC (Standard, Async, GPLAsync)**: `dxvk-nightly-*-arm64ec-*.wcp` (and `.zip`)
             12. **DXVK-NVAPI**: `dxvk-nvapi-*.wcp` (and `.zip`)
             
-            _These files are packaged for use with Winlator._
+            These files (.wcp) are packaged for use with Winlator.
+
+            Zip filee contain raw files to inject manually for Gamehub Builds with files access.
           files: |
             ./artifacts/*.wcp
             ./artifacts/*.zip
