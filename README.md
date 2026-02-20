@@ -89,6 +89,7 @@ https://discord.gg/emuready-1380826875961540648
 | [**K11MCH1**](https://github.com/K11MCH1/AdrenoToolsDrivers/releases) | Qualcomm proprietary driver + Mesa Turnip driver |
 | [**GameNative**](https://gamenative.app/drivers/) | Qualcomm proprietary driver + Mesa Turnip driver |
 | [**zoerakk**](https://github.com/zoerakk/qualcomm-adreno-driver/releases) | Qualcomm proprietary driver (ELITE) |
+| [**Mr. Purple**](https://github.com/MrPurple666/purple-turnip/releases) | Turnip Drivers - Secret Console |
 
 
 <details>
