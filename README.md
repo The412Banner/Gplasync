@@ -85,7 +85,7 @@ https://discord.gg/emuready-1380826875961540648
 | Link | 📖 |
 |:-:|-|
 | [**StevenMXZ**](https://github.com/StevenMXZ/freedreno_turnip-CI/releases) | Mesa Turnip drivers + (ELITE) |
-| [**whitebelyash**](https://github.com/whitebelyash/freedreno_turnip-CI/releases) | Mesa Turnip drivers |
+| [**whitebelyash**](https://github.com/whitebelyash/freedreno_turnip-CI/releases) | Mesa Turnip drivers (ELITE) |
 | [**K11MCH1**](https://github.com/K11MCH1/AdrenoToolsDrivers/releases) | Qualcomm proprietary drivers + Mesa Turnip drivers |
 | [**GameNative**](https://gamenative.app/drivers/) | Qualcomm proprietary drivers + Mesa Turnip drivers |
 | [**zoerakk**](https://github.com/zoerakk/qualcomm-adreno-driver/releases) | Qualcomm proprietary drivers (ELITE) |
