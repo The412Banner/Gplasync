@@ -84,11 +84,11 @@ https://discord.gg/emuready-1380826875961540648
 ### 🔥 Adreno Driver
 | Link | 📖 |
 |:-:|-|
-| [**StevenMXZ**](https://github.com/StevenMXZ/freedreno_turnip-CI/releases) | Mesa Turnip driver |
-| [**whitebelyash**](https://github.com/whitebelyash/freedreno_turnip-CI/releases) | Mesa Turnip driver |
-| [**K11MCH1**](https://github.com/K11MCH1/AdrenoToolsDrivers/releases) | Qualcomm proprietary driver + Mesa Turnip driver |
-| [**GameNative**](https://gamenative.app/drivers/) | Qualcomm proprietary driver + Mesa Turnip driver |
-| [**zoerakk**](https://github.com/zoerakk/qualcomm-adreno-driver/releases) | Qualcomm proprietary driver (ELITE) |
+| [**StevenMXZ**](https://github.com/StevenMXZ/freedreno_turnip-CI/releases) | Mesa Turnip drivers + (ELITE) |
+| [**whitebelyash**](https://github.com/whitebelyash/freedreno_turnip-CI/releases) | Mesa Turnip drivers |
+| [**K11MCH1**](https://github.com/K11MCH1/AdrenoToolsDrivers/releases) | Qualcomm proprietary drivers + Mesa Turnip drivers |
+| [**GameNative**](https://gamenative.app/drivers/) | Qualcomm proprietary drivers + Mesa Turnip drivers |
+| [**zoerakk**](https://github.com/zoerakk/qualcomm-adreno-driver/releases) | Qualcomm proprietary drivers (ELITE) |
 | [**Mr. Purple**](https://github.com/MrPurple666/purple-turnip/releases) | Turnip Drivers - Secret Console |
 
 
