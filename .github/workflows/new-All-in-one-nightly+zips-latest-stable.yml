@@ -932,7 +932,8 @@ jobs:
             11. **DXVK (ARM64EC)**: `DXVK-ARM64EC-*.wcp` (and `.zip`)
             12. **DXVK-NVAPI**: `dxvk-nvapi-*.wcp` (and `.zip`)
             
-            _These files are packaged for use with Winlator._
+            **The .wcp files are packaged for use with Winlator**
+            **The .zip files are packaged for manual injection with Gamehub**
           files: |
             ./artifacts/*.wcp
             ./artifacts/*.zip
