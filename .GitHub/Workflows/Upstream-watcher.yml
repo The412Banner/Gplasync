@@ -1,0 +1,103 @@
+name: Upstream Commit Watcher
+
+on:
+  schedule:
+    - [span_5](start_span)cron: '0 * * * *' # Runs at minute 0 past every hour[span_5](end_span)
+  [span_6](start_span)workflow_dispatch: # Allows you to run it manually[span_6](end_span)
+
+permissions:
+  [span_7](start_span)contents: write # Needed to commit the updated hashes file back to the repo[span_7](end_span)
+  [span_8](start_span)actions: write  # Needed to trigger the main workflow[span_8](end_span)
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check Upstream Repositories
+        id: check
+        run: |
+          # Map repos to their respective components
+          REPOS=(
+            "https://github.com/ptitSeb/box64 box64"
+            "https://github.com/Pipetto-crypto/box64 box64"
+            "https://github.com/FEX-Emu/FEX fex"
+            "https://github.com/HansKristian-Work/vkd3d-proton vkd3d"
+            "https://github.com/doitsujin/dxvk dxvk"
+            "https://github.com/jp7677/dxvk-nvapi dxvk_nvapi"
+          )
+          
+          HASH_FILE="upstream_hashes.txt"
+          touch $HASH_FILE
+          
+          NEW_HASHES=""
+          CHANGED=false
+          
+          # Initialize all build triggers to false
+          RUN_BOX64=false
+          RUN_FEX=false
+          RUN_VKD3D=false
+          RUN_DXVK=false
+          RUN_DXVK_NVAPI=false
+          
+          echo "Checking latest commits..."
+          for entry in "${REPOS[@]}"; do
+            repo=$(echo $entry | awk '{print $1}')
+            component=$(echo $entry | awk '{print $2}')
+            
+            # Gets the latest commit hash for the default branch without cloning
+            HASH=$(git ls-remote "$repo" HEAD | awk '{print $1}')
+            NEW_LINE="${repo}: ${HASH}"
+            NEW_HASHES="${NEW_HASHES}${NEW_LINE}\n"
+            
+            # Compare against the tracking file
+            if ! grep -q "$NEW_LINE" "$HASH_FILE"; then
+              echo "New commit detected in $repo!"
+              CHANGED=true
+              # Flip the boolean for the changed component
+              if [ "$component" == "box64" ]; then RUN_BOX64=true; fi
+              if [ "$component" == "fex" ]; then RUN_FEX=true; fi
+              if [ "$component" == "vkd3d" ]; then RUN_VKD3D=true; fi
+              if [ "$component" == "dxvk" ]; then RUN_DXVK=true; fi
+              if [ "$component" == "dxvk_nvapi" ]; then RUN_DXVK_NVAPI=true; fi
+            fi
+          done
+          
+          echo -e "$NEW_HASHES" > new_hashes.txt
+          
+          # Output variables for GitHub Actions
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+          echo "run_box64=$RUN_BOX64" >> $GITHUB_OUTPUT
+          echo "run_fex=$RUN_FEX" >> $GITHUB_OUTPUT
+          echo "run_vkd3d=$RUN_VKD3D" >> $GITHUB_OUTPUT
+          echo "run_dxvk=$RUN_DXVK" >> $GITHUB_OUTPUT
+          echo "run_dxvk_nvapi=$RUN_DXVK_NVAPI" >> $GITHUB_OUTPUT
+          
+          if [ "$CHANGED" = true ]; then
+            mv new_hashes.txt "$HASH_FILE"
+          else
+            echo "No new commits detected."
+          fi
+
+      - name: Commit Updated Hashes
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          [span_9](start_span)git config user.name "github-actions[bot]"[span_9](end_span)
+          [span_10](start_span)git config user.email "41898282+github-actions[bot]@users.noreply.github.com"[span_10](end_span)
+          [span_11](start_span)git add upstream_hashes.txt[span_11](end_span)
+          [span_12](start_span)git commit -m "chore: auto-update upstream commit hashes"[span_12](end_span)
+          [span_13](start_span)git push[span_13](end_span)
+
+      - name: Trigger Main Build Workflow
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run "new-All-in-one-nightly+zips-latest-stable.yml" \
+            -f run_box64=${{ steps.check.outputs.run_box64 }} \
+            -f run_fex=${{ steps.check.outputs.run_fex }} \
+            -f run_vkd3d=${{ steps.check.outputs.run_vkd3d }} \
+            -f run_dxvk=${{ steps.check.outputs.run_dxvk }} \
+            -f run_dxvk_nvapi=${{ steps.check.outputs.run_dxvk_nvapi }}
