@@ -68,7 +68,7 @@ https://discord.gg/emuready-1380826875961540648
 > 
 > </details>
 > <br>
-> Updates daily at 04:00 AM EST 
+> Nightly Worlfow runs and Updates daily at 03:30 AM EST / 08:30 AM UST
 
 ---
 
