@@ -29,15 +29,15 @@ jobs:
       - name: Build x64 (64-bit)
         run: |
           cd source
-          # Removed the accidental 'e' in build-win64.txt
-          meson setup build.64 --cross-file build-win64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
+          # The '.' explicitly tells Meson that the current directory is the source
+          meson setup build.64 . --cross-file build-win64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
           ninja -C build.64 install
 
       - name: Build x86 (32-bit)
         run: |
           cd source
-          # Removed the accidental 'e' in build-win32.txt
-          meson setup build.32 --cross-file build-win32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
+          # The '.' explicitly tells Meson that the current directory is the source
+          meson setup build.32 . --cross-file build-win32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
           ninja -C build.32 install
 
       - name: Structure WCP Package
@@ -67,7 +67,7 @@ jobs:
       - name: Package Artifact
         run: |
           cd package
-          zip -r ../dxvk-1.9.4-async.wcp ./*
+          zip -9 -r ../dxvk-1.9.4-async.wcp ./*
 
       - name: Upload WCP
         uses: actions/upload-artifact@v4
