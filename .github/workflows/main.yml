@@ -1,82 +1,62 @@
-name: Build Sporif DXVK 1.9.4 Async WCP
+name: Save Patched DXVK 1.9.4 Source
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  save-source:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y meson ninja-build gcc-mingw-w64 g++-mingw-w64 glslang-tools
+      - name: Checkout Your Repository
+        uses: actions/checkout@v4
 
-      - name: Clone Official DXVK Source
+      - name: Clone Official DXVK and Sporif Repositories
         run: |
-          # Clone the base dxvk repository into 'source'
-          git clone https://github.com/doitsujin/dxvk.git source
-          cd source
+          # Clone the official DXVK source
+          git clone https://github.com/doitsujin/dxvk.git dxvk-source
+          cd dxvk-source
           git checkout v1.9.4
+          cd ..
 
-      - name: Clone Sporif Repo and Apply Patch
+          # Clone the Sporif repository for the patch
+          git clone https://github.com/Sporif/dxvk-async.git sporif-repo
+
+      - name: Apply the Async Patch
         run: |
-          # Clone the Sporif repository specifically for the patch
-          git clone https://github.com/Sporif/dxvk-async.git async_patch
-          cd async_patch
+          cd dxvk-source
           
-          # Checkout the 1.9.4 release tag from Sporif's repo
-          git checkout 1.9.4
+          # Apply the patch from the Sporif repo
+          # Note: Sporif's patch file is typically named dxvk-async.patch
+          patch -p1 < ../sporif-repo/dxvk-async.patch
           
-          # Navigate to DXVK source and apply the patch
-          cd ../source
-          patch -p1 < ../async_patch/dxvk-async.patch
+          # Remove the .git folder so it doesn't create a submodule when committed to your repo
+          rm -rf .git
 
-      - name: Build x64 (64-bit)
+      - name: Move Source to Target Directory
         run: |
-          cd source
-          meson setup build.64 --cross-file build-wine64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
-          ninja -C build.64 install
-
-      - name: Build x86 (32-bit)
-        run: |
-          cd source
-          meson setup build.32 --cross-file build-wine32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
-          ninja -C build.32 install
-
-      - name: Structure WCP Package
-        run: |
-          # Move DLLs directly into the x64/x86 roots for Winlator
-          mv package/x64/bin/*.dll package/x64/
-          mv package/x86/bin/*.dll package/x86/
+          # Create a directory in your repo to hold the patched source
+          mkdir -p dxvk-1.9.4-patched-source
           
-          # Clean up unnecessary development files
-          rm -rf package/x64/bin package/x64/lib package/x64/include package/x64/share
-          rm -rf package/x86/bin package/x86/lib package/x86/include package/x86/share
+          # Move the patched files into this directory
+          cp -r dxvk-source/* dxvk-1.9.4-patched-source/
+          
+          # Clean up the temporary clone directories
+          rm -rf dxvk-source sporif-repo
 
-      - name: Generate WCP Metadata
+      - name: Commit and Push to Repository
         run: |
-          cat <<EOF > package/index.json
-          {
-            "name": "DXVK 1.9.4 Async (Sporif)",
-            "version": "1.9.4",
-            "author": "The412Banner",
-            "description": "DXVK 1.9.4 utilizing the Sporif async patch for Winlator/GameHub.",
-            "type": "dxvk",
-            "files": {
-              "x64": ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"],
-              "x86": ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]
-            }
-          }
-          EOF
-
-      - name: Package Artifact
-        run: |
-          cd package
-          zip -r ../dxvk-1.9.4-sporif-async.wcp ./*
-
-      - name: Upload WCP
-        uses: actions/upload-artifact@v4
-        with:
-          name: dxvk-1.9.4-sporif-async-wcp
-          path: dxvk-1.9.4-sporif-async.wcp
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add dxvk-1.9.4-patched-source/
+          
+          # Only commit and push if there are actually changes
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "Add pre-patched DXVK 1.9.4 Async (Sporif) source tree"
+            git push
+          else
+            echo "No changes to commit. Source is already up to date."
+          fi
