@@ -9,7 +9,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        # This step pulls your repository into the runner, giving access to your 'patches/' folder
 
       - name: Setup Build Environment
         run: |
@@ -18,7 +17,6 @@ jobs:
 
       - name: Clone Official DXVK
         run: |
-          # Clone the source code into a folder named 'source'
           git clone https://github.com/doitsujin/dxvk.git source
           cd source
           git checkout v1.9.4
@@ -26,28 +24,27 @@ jobs:
       - name: Apply Local Async Patch
         run: |
           cd source
-          # Apply the specific patch from your repo's patches directory
           patch -p1 < ../patches/dxvk-async-67e2ee1.patch
 
       - name: Build x64 (64-bit)
         run: |
           cd source
-          meson setup build.64 --cross-file build-wine64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
+          # Removed the accidental 'e' in build-win64.txt
+          meson setup build.64 --cross-file build-win64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
           ninja -C build.64 install
 
       - name: Build x86 (32-bit)
         run: |
           cd source
-          meson setup build.32 --cross-file build-wine32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
+          # Removed the accidental 'e' in build-win32.txt
+          meson setup build.32 --cross-file build-win32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
           ninja -C build.32 install
 
       - name: Structure WCP Package
         run: |
-          # Move DLLs from bin/ directly into the x64/x86 roots for Winlator
           mv package/x64/bin/*.dll package/x64/
           mv package/x86/bin/*.dll package/x86/
           
-          # Clean up unnecessary development files
           rm -rf package/x64/bin package/x64/lib package/x64/include package/x64/share
           rm -rf package/x86/bin package/x86/lib package/x86/include package/x86/share
 
