@@ -1,0 +1,67 @@
+name: Build DXVK 1.9.4 Async WCP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build
+          # Download llvm-mingw for cross-compilation
+          wget https://github.com/mstorsjo/llvm-mingw/releases/download/20230614/llvm-mingw-20230614-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-20230614-ucrt-ubuntu-20.04-x86_64.tar.xz
+          echo "$GITHUB_WORKSPACE/llvm-mingw-20230614-ucrt-ubuntu-20.04-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Clone and Patch DXVK
+        run: |
+          git clone --recursive https://github.com/doitsujin/dxvk.git source
+          cd source
+          git checkout v1.9.4
+          # Apply the async patch
+          wget https://raw.githubusercontent.com/Sporif/dxvk-async/master/dxvk-async-1.9.4.patch
+          patch -p1 < dxvk-async-1.9.4.patch
+
+      - name: Compile DXVK
+        run: |
+          cd source
+          # Build 64-bit
+          meson setup build.64 --cross-file build-wine64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
+          ninja -C build.64 install
+          # Build 32-bit
+          meson setup build.32 --cross-file build-wine32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
+          ninja -C build.32 install
+
+      - name: Generate WCP JSON
+        run: |
+          cat <<EOF > package/index.json
+          {
+            "name": "DXVK 1.9.4 Async",
+            "version": "1.9.4",
+            "author": "The412Banner",
+            "description": "DXVK 1.9.4 with Async patch for stutter reduction.",
+            "type": "dxvk",
+            "files": {
+              "x64": ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"],
+              "x86": ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]
+            }
+          }
+          EOF
+
+      - name: Package WCP
+        run: |
+          cd package
+          zip -r ../dxvk-1.9.4-async.wcp ./*
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DXVK-1.9.4-Async-WCP
+          path: dxvk-1.9.4-async.wcp
+          
