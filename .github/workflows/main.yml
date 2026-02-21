@@ -9,28 +9,40 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          # Install Meson, Ninja, and standard MinGW cross-compilers
           sudo apt-get install -y meson ninja-build gcc-mingw-w64 g++-mingw-w64 glslang-tools
+
+      - name: Clone DXVK and Fetch Patch
+        run: |
+          # Clone the source code into a folder named 'source'
+          git clone https://github.com/doitsujin/dxvk.git source
+          cd source
+          git checkout v1.9.4
+          
+          # Pull the async patch and apply it
+          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-1.9.4.patch -O dxvk-async.patch
+          patch -p1 < dxvk-async.patch
 
       - name: Build x64 (64-bit)
         run: |
+          # Change into the cloned directory before running meson
+          cd source
           meson setup build.64 --cross-file build-wine64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
           ninja -C build.64 install
 
       - name: Build x86 (32-bit)
         run: |
+          # Change into the cloned directory before running meson
+          cd source
           meson setup build.32 --cross-file build-wine32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
           ninja -C build.32 install
 
       - name: Structure WCP Package
         run: |
-          # Move DLLs from bin/ directly into the x64/x86 roots for Winlator compatibility
+          # Move DLLs from bin/ directly into the x64/x86 roots for Winlator
           mv package/x64/bin/*.dll package/x64/
           mv package/x86/bin/*.dll package/x86/
           
@@ -45,7 +57,7 @@ jobs:
             "name": "DXVK 1.9.4 Async",
             "version": "1.9.4",
             "author": "The412Banner",
-            "description": "DXVK 1.9.4 Async built directly from source repository.",
+            "description": "DXVK 1.9.4 with Async patch for Winlator/GameHub.",
             "type": "dxvk",
             "files": {
               "x64": ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"],
@@ -64,3 +76,4 @@ jobs:
         with:
           name: dxvk-1.9.4-async-wcp
           path: dxvk-1.9.4-async.wcp
+          
