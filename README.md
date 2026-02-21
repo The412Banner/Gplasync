@@ -61,7 +61,7 @@ https://discord.gg/emuready-1380826875961540648
 > | [**Winlator-CMod**](https://github.com/coffincolors/winlator/releases) | Baseline Bionic build with excellent controller support. |
 > | [**Winlator-Ludashi**](https://github.com/StevenMXZ/Winlator-Ludashi/releases) | Keeps up with the latest upstream code while remaining close to vanilla. Great performance. |
 > | [**GameNative**](https://github.com/utkarshdalal/GameNative/releases) | Supports both glibc and bionic, featuring a sleek UI and Steam, Epic, GOG and Amazon Games integration. |
-> | [**Winlator-REF4IK**]([https://github.com/coffincolors/winlator/releases](https://github.com/REF4IK/winlator-ref4ik-/releases) | Enhanced Performance Monitoring and Reworked Input Controls with lots of QoL improvements |
+> | [**Winlator-REF4IK**](https://github.com/REF4IK/winlator-ref4ik-/releases) | Enhanced Performance Monitoring and Reworked Input Controls with lots of QoL improvements |
 
 ---
 
