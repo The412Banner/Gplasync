@@ -1,4 +1,4 @@
-name: Build DXVK 1.9.4 Async WCP
+name: Build Sporif DXVK 1.9.4 Async WCP
 
 on:
   workflow_dispatch:
@@ -7,42 +7,46 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
       - name: Setup Build Environment
         run: |
           sudo apt-get update
           sudo apt-get install -y meson ninja-build gcc-mingw-w64 g++-mingw-w64 glslang-tools
 
-      - name: Clone DXVK and Fetch Patch
+      - name: Clone Official DXVK Source
         run: |
-          # Clone the source code into a folder named 'source'
+          # Clone the base dxvk repository into 'source'
           git clone https://github.com/doitsujin/dxvk.git source
           cd source
           git checkout v1.9.4
+
+      - name: Clone Sporif Repo and Apply Patch
+        run: |
+          # Clone the Sporif repository specifically for the patch
+          git clone https://github.com/Sporif/dxvk-async.git async_patch
+          cd async_patch
           
-          # Pull the async patch and apply it
-          wget https://gitlab.com/Ph42oN/dxvk-gplasync/-/raw/main/patches/dxvk-gplasync-1.9.4.patch -O dxvk-async.patch
-          patch -p1 < dxvk-async.patch
+          # Checkout the 1.9.4 release tag from Sporif's repo
+          git checkout 1.9.4
+          
+          # Navigate to DXVK source and apply the patch
+          cd ../source
+          patch -p1 < ../async_patch/dxvk-async.patch
 
       - name: Build x64 (64-bit)
         run: |
-          # Change into the cloned directory before running meson
           cd source
           meson setup build.64 --cross-file build-wine64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
           ninja -C build.64 install
 
       - name: Build x86 (32-bit)
         run: |
-          # Change into the cloned directory before running meson
           cd source
           meson setup build.32 --cross-file build-wine32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
           ninja -C build.32 install
 
       - name: Structure WCP Package
         run: |
-          # Move DLLs from bin/ directly into the x64/x86 roots for Winlator
+          # Move DLLs directly into the x64/x86 roots for Winlator
           mv package/x64/bin/*.dll package/x64/
           mv package/x86/bin/*.dll package/x86/
           
@@ -54,10 +58,10 @@ jobs:
         run: |
           cat <<EOF > package/index.json
           {
-            "name": "DXVK 1.9.4 Async",
+            "name": "DXVK 1.9.4 Async (Sporif)",
             "version": "1.9.4",
             "author": "The412Banner",
-            "description": "DXVK 1.9.4 with Async patch for Winlator/GameHub.",
+            "description": "DXVK 1.9.4 utilizing the Sporif async patch for Winlator/GameHub.",
             "type": "dxvk",
             "files": {
               "x64": ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"],
@@ -69,11 +73,10 @@ jobs:
       - name: Package Artifact
         run: |
           cd package
-          zip -r ../dxvk-1.9.4-async.wcp ./*
+          zip -r ../dxvk-1.9.4-sporif-async.wcp ./*
 
       - name: Upload WCP
         uses: actions/upload-artifact@v4
         with:
-          name: dxvk-1.9.4-async-wcp
-          path: dxvk-1.9.4-async.wcp
-          
+          name: dxvk-1.9.4-sporif-async-wcp
+          path: dxvk-1.9.4-sporif-async.wcp
