@@ -5,7 +5,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # DOWNGRADE TO 22.04: This is required to compile older DXVK versions
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -26,27 +27,19 @@ jobs:
           cd source
           patch -p1 < ../patches/dxvk-async-67e2ee1.patch
 
-      - name: Build x64 (64-bit)
+      - name: Build DXVK via Official Script
         run: |
           cd source
-          # The '.' explicitly tells Meson that the current directory is the source
-          meson setup build.64 . --cross-file build-win64.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x64"
-          ninja -C build.64 install
-
-      - name: Build x86 (32-bit)
-        run: |
-          cd source
-          # The '.' explicitly tells Meson that the current directory is the source
-          meson setup build.32 . --cross-file build-win32.txt --buildtype release --prefix "$GITHUB_WORKSPACE/package/x86"
-          ninja -C build.32 install
+          # Using the older runner allows this native script to work flawlessly
+          ./package-release.sh 1.9.4 "$GITHUB_WORKSPACE/package_output" --no-package
 
       - name: Structure WCP Package
         run: |
-          mv package/x64/bin/*.dll package/x64/
-          mv package/x86/bin/*.dll package/x86/
+          mkdir -p package/x64 package/x86
           
-          rm -rf package/x64/bin package/x64/lib package/x64/include package/x64/share
-          rm -rf package/x86/bin package/x86/lib package/x86/include package/x86/share
+          # The official script outputs exactly to these directories
+          mv package_output/dxvk-1.9.4/x64/*.dll package/x64/
+          mv package_output/dxvk-1.9.4/x32/*.dll package/x86/
 
       - name: Generate WCP Metadata
         run: |
