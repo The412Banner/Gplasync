@@ -1,7 +1,7 @@
-https://github.com/ptitSeb/box64: dff10fdfc7818a7ac28136e77377890a1ac21e9d
+https://github.com/ptitSeb/box64: 05b1086f097a363ce361f57b251712c52593d119
 https://github.com/Pipetto-crypto/box64: c0cc2c254e24ae53bd435e4d3ff84e1a7fdb6399
 https://github.com/FEX-Emu/FEX: f5b08bbea6a40a5cf6ae30bba184ab4b0a397b00
-https://github.com/HansKristian-Work/vkd3d-proton: 9ced67dcbbc32c1ffd3257c45744edadb6eece97
+https://github.com/HansKristian-Work/vkd3d-proton: 89383e70b00abb40784a8852bea1ec9555d20e1e
 https://github.com/doitsujin/dxvk: fae3c43607742d1c118fd561ba5f4e9a7bb1540b
 https://github.com/jp7677/dxvk-nvapi: 62e9944677443378c2133336e93339c824010043
 
