@@ -924,3 +924,72 @@ jobs:
             ./artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ----------------------------------------------------------------
+      # Discord notification — success
+      # Requires DISCORD_WEBHOOK_URL to be set in repo secrets:
+      #   Settings → Secrets and variables → Actions → New repository secret
+      # ----------------------------------------------------------------
+      - name: Notify Discord (success)
+        if: success()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🚀 New Nightly Build Released",
+                "description": "**${{ env.RELEASE_NAME }}**\n\n[📦 Download from GitHub Releases](https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG_NAME }})",
+                "color": 5763719,
+                "fields": [
+                  {
+                    "name": "Box64",
+                    "value": "Native · Bionic · WOW64 (Official + Hybrid)",
+                    "inline": false
+                  },
+                  {
+                    "name": "FEXCore",
+                    "value": "${{ needs.build-fex.outputs.version }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "VKD3D-Proton",
+                    "value": "${{ needs.build-vkd3d.outputs.version }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "DXVK (GPLAsync)",
+                    "value": "${{ needs.build-dxvk.outputs.commit }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "DXVK (ARM64EC)",
+                    "value": "${{ needs.build-dxvk-arm64ec.outputs.version }}",
+                    "inline": true
+                  }
+                ],
+                "footer": { "text": "GitHub Actions · ${{ github.repository }}" },
+                "timestamp": "${{ github.event.repository.updated_at }}"
+              }]
+            }'
+
+      # ----------------------------------------------------------------
+      # Discord notification — failure
+      # Runs if any step in this job failed, including the build jobs
+      # upstream (because create-release won't run at all if they fail,
+      # so this only catches failures inside this job itself).
+      # For upstream build failures, see the note below.
+      # ----------------------------------------------------------------
+      - name: Notify Discord (failure)
+        if: failure()
+        run: |
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "❌ Nightly Build Failed",
+                "description": "One or more jobs failed during the nightly run.\n\n[🔍 View Actions Log](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+                "color": 15548997,
+                "footer": { "text": "GitHub Actions · ${{ github.repository }}" },
+                "timestamp": "${{ github.event.repository.updated_at }}"
+              }]
+            }'
