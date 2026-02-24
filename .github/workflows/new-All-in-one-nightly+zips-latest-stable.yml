@@ -876,13 +876,73 @@ jobs:
 
       - name: Set Release Variables
         run: |
-          # Create a tag-safe timestamp (e.g., 20231025-090000)
           TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
-          # Create a human-readable date for the title (e.g., 2023-10-25 09:00:00 UTC)
           READABLE_DATE=$(date +'%Y-%m-%d %H:%M:%S UTC')
-
           echo "TAG_NAME=nightly-$TIMESTAMP" >> $GITHUB_ENV
           echo "RELEASE_NAME=Emulation Nightly Build - $READABLE_DATE" >> $GITHUB_ENV
+
+      # ----------------------------------------------------------------
+      # Delete nightly releases older than 24 hours.
+      # Uses the GitHub API to list all releases, filters to those whose
+      # tag starts with "nightly-", checks the published_at timestamp,
+      # and deletes both the release and its git tag if older than 24h.
+      # Runs before creating the new release so we never briefly have
+      # zero releases visible.
+      # ----------------------------------------------------------------
+      - name: Delete old nightly releases
+        run: |
+          CUTOFF=$(date -u -d '24 hours ago' +%s)
+          PAGE=1
+
+          while true; do
+            # Fetch one page of releases (100 per page max)
+            RELEASES=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100&page=$PAGE")
+
+            # Stop if the page is empty
+            COUNT=$(echo "$RELEASES" | jq length)
+            if [ "$COUNT" -eq 0 ]; then
+              break
+            fi
+
+            # Iterate over each release on this page
+            echo "$RELEASES" | jq -c '.[]' | while read -r RELEASE; do
+              TAG=$(echo "$RELEASE" | jq -r '.tag_name')
+              RELEASE_ID=$(echo "$RELEASE" | jq -r '.id')
+              PUBLISHED=$(echo "$RELEASE" | jq -r '.published_at')
+
+              # Only touch releases made by this workflow (tag starts with "nightly-")
+              if [[ "$TAG" != nightly-* ]]; then
+                continue
+              fi
+
+              # Convert published_at to epoch seconds and compare
+              PUBLISHED_EPOCH=$(date -u -d "$PUBLISHED" +%s)
+              if [ "$PUBLISHED_EPOCH" -lt "$CUTOFF" ]; then
+                echo "Deleting release: $TAG (published $PUBLISHED)"
+
+                # Delete the release
+                curl -s -X DELETE \
+                  -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                  -H "Accept: application/vnd.github+json" \
+                  "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
+
+                # Delete the associated git tag
+                curl -s -X DELETE \
+                  -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                  -H "Accept: application/vnd.github+json" \
+                  "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$TAG"
+
+                echo "Deleted: $TAG"
+              else
+                echo "Keeping: $TAG (published $PUBLISHED, within 24h)"
+              fi
+            done
+
+            PAGE=$((PAGE + 1))
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -972,13 +1032,6 @@ jobs:
               }]
             }'
 
-      # ----------------------------------------------------------------
-      # Discord notification — failure
-      # Runs if any step in this job failed, including the build jobs
-      # upstream (because create-release won't run at all if they fail,
-      # so this only catches failures inside this job itself).
-      # For upstream build failures, see the note below.
-      # ----------------------------------------------------------------
       - name: Notify Discord (failure)
         if: failure()
         run: |
