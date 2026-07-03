@@ -71,21 +71,19 @@ jobs:
           COMMIT_FULL=$(git rev-parse HEAD)
           COMMIT_SHORT=$(git rev-parse --short HEAD)
 
-          # Auto-detect version from git: an exactly-on-tag build keeps the clean
-          # tag (a "true" tagged nightly); a build past the tag reports +N commits
-          # so it isn't mislabeled as the clean release.
-          GIT_TAG=$(git tag --points-at HEAD | grep -E '^FEX-' | sort -V | tail -1 || true)
-          if [ -z "$GIT_TAG" ]; then
+          # Distance from the nearest FEX release tag decides the name:
+          #   - exactly on the tag -> stable release: FEXCore-<ver>-stable
+          #   - N commits past it   -> nightly:        FEX-<ver>+N-Nightly-<sha>
+          EXACT_TAG=$(git tag --points-at HEAD | grep -E '^FEX-' | sort -V | tail -1 || true)
+          if [ -n "$EXACT_TAG" ]; then
+            BASE_TAG="$EXACT_TAG"
+            COMMITS_SINCE_TAG=0
+          else
             BASE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
             if [ "$BASE_TAG" = "FEX-Unknown" ]; then
-              GIT_TAG="FEX-Unknown"
+              COMMITS_SINCE_TAG=1
             else
               COMMITS_SINCE_TAG=$(git rev-list "${BASE_TAG}..HEAD" --count 2>/dev/null || echo 0)
-              if [ "$COMMITS_SINCE_TAG" -gt 0 ]; then
-                GIT_TAG="${BASE_TAG}+${COMMITS_SINCE_TAG}"
-              else
-                GIT_TAG="${BASE_TAG}"
-              fi
             fi
           fi
 
@@ -93,8 +91,12 @@ jobs:
           CUSTOM_LABEL="${{ github.event.inputs.version_label }}"
           if [ -n "$CUSTOM_LABEL" ]; then
             VERSION_NAME="${CUSTOM_LABEL}"
+          elif [ "$BASE_TAG" = "FEX-Unknown" ]; then
+            VERSION_NAME="FEX-Unknown-Nightly-${COMMIT_SHORT}"
+          elif [ "$COMMITS_SINCE_TAG" -eq 0 ]; then
+            VERSION_NAME="FEXCore-${BASE_TAG#FEX-}-stable"
           else
-            VERSION_NAME="${GIT_TAG}-Nightly-${COMMIT_SHORT}"
+            VERSION_NAME="${BASE_TAG}+${COMMITS_SINCE_TAG}-Nightly-${COMMIT_SHORT}"
           fi
 
           echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV

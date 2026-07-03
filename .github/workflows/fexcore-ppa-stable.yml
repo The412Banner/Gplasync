@@ -83,8 +83,8 @@ jobs:
           # "FEX-2605" -> "2605" for profile.json versionName (mirrors PPA exactly)
           VERSION_SHORT="${TAG_NAME#FEX-}"
 
-          # File-stem follows the user's existing convention: FEXCore-2605-PPA.wcp
-          FILE_STEM="FEXCore-${VERSION_SHORT}-PPA"
+          # File-stem marks this as a stable PPA-flavor build: FEXCore-2607-stable-ppa.wcp
+          FILE_STEM="FEXCore-${VERSION_SHORT}-stable-ppa"
 
           # Mirror the actual Launchpad PPA build path so DWARF DW_AT_comp_dir
           # and DW_AT_name strings match: "/usr/src/fex-emu-wine-NNNN~q/..."
