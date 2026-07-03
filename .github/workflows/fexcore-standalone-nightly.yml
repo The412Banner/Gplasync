@@ -71,10 +71,22 @@ jobs:
           COMMIT_FULL=$(git rev-parse HEAD)
           COMMIT_SHORT=$(git rev-parse --short HEAD)
 
-          # Auto-detect version from git: prefer exact tag, fall back to describe
+          # Auto-detect version from git: an exactly-on-tag build keeps the clean
+          # tag (a "true" tagged nightly); a build past the tag reports +N commits
+          # so it isn't mislabeled as the clean release.
           GIT_TAG=$(git tag --points-at HEAD | grep -E '^FEX-' | sort -V | tail -1 || true)
           if [ -z "$GIT_TAG" ]; then
-            GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
+            BASE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
+            if [ "$BASE_TAG" = "FEX-Unknown" ]; then
+              GIT_TAG="FEX-Unknown"
+            else
+              COMMITS_SINCE_TAG=$(git rev-list "${BASE_TAG}..HEAD" --count 2>/dev/null || echo 0)
+              if [ "$COMMITS_SINCE_TAG" -gt 0 ]; then
+                GIT_TAG="${BASE_TAG}+${COMMITS_SINCE_TAG}"
+              else
+                GIT_TAG="${BASE_TAG}"
+              fi
+            fi
           fi
 
           # Use user-supplied label if given, otherwise build one

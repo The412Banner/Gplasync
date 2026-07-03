@@ -208,7 +208,20 @@ jobs:
           git clone --recursive https://github.com/FEX-Emu/FEX.git source
           cd source
 
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
+          # Nearest FEX release tag reachable from HEAD, plus +N when HEAD sits
+          # past it, so post-tag builds aren't mislabeled as the clean release.
+          # An exactly-on-tag build keeps the clean tag (a "true" tagged nightly).
+          BASE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
+          if [ "$BASE_TAG" = "FEX-Unknown" ]; then
+            LATEST_TAG="FEX-Unknown"
+          else
+            COMMITS_SINCE_TAG=$(git rev-list "${BASE_TAG}..HEAD" --count 2>/dev/null || echo 0)
+            if [ "$COMMITS_SINCE_TAG" -gt 0 ]; then
+              LATEST_TAG="${BASE_TAG}+${COMMITS_SINCE_TAG}"
+            else
+              LATEST_TAG="${BASE_TAG}"
+            fi
+          fi
           COMMIT_HASH=$(git rev-parse --short HEAD)
           VERSION_NAME="${LATEST_TAG}-Nightly-${COMMIT_HASH}"
           echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
@@ -327,7 +340,20 @@ jobs:
           git clone --recursive https://github.com/FEX-Emu/FEX.git source
           cd source
 
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
+          # Nearest FEX release tag reachable from HEAD, plus +N when HEAD sits
+          # past it, so post-tag builds aren't mislabeled as the clean release.
+          # An exactly-on-tag build keeps the clean tag (a "true" tagged nightly).
+          BASE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "FEX-Unknown")
+          if [ "$BASE_TAG" = "FEX-Unknown" ]; then
+            LATEST_TAG="FEX-Unknown"
+          else
+            COMMITS_SINCE_TAG=$(git rev-list "${BASE_TAG}..HEAD" --count 2>/dev/null || echo 0)
+            if [ "$COMMITS_SINCE_TAG" -gt 0 ]; then
+              LATEST_TAG="${BASE_TAG}+${COMMITS_SINCE_TAG}"
+            else
+              LATEST_TAG="${BASE_TAG}"
+            fi
+          fi
           COMMIT_HASH=$(git rev-parse --short HEAD)
           VERSION_NAME="${LATEST_TAG}-Nightly-${COMMIT_HASH}-PPA"
           echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
