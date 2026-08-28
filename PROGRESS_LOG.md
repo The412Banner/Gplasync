@@ -34,11 +34,16 @@ The gplasync/binsem jobs build doitsujin **master HEAD** + `patches/dxvk-gplasyn
 `dxvk_context.cpp:7691: only 1 name provided for structured binding — const auto& [view] = ...getAttachment(i); DxvkAttachment decomposes into 2 elements`.
 The patch still *applies* (so the `--dry-run` fallback to v3.0 never fires) but no longer *compiles*. The 20:37 nightly worked only because master HEAD == the 3.1 tag exactly; post-3.1 commits broke it. **This breaks tonight's scheduled main nightly too** (hard `needs` → create-release skips → no publish). Fix options: (a) re-vendor Ph42oN's master patch, (b) harden the fallback to also trigger on compile failure, (c) pin the gplasync jobs to the latest stable tag instead of master HEAD.
 
-#### Resume / open (user approval pending on all)
-- **Resolve the gplasync breakage first** (pick a/b/c) — until then no nightly publishes regardless of this branch; ideally bundle the fix with the vanilla merge.
-- **FF-merge branch → `main`** (validated-safe on its own).
+### [fix] — gplasync master patch rebased for 2-member DxvkAttachment (2026-08-28, commit `158288d2`)
+🔴 **Correction:** the earlier "upstream master drifted past v3.1" diagnosis was WRONG. `doitsujin/dxvk` master HEAD is **stable at `70d7508c` == the v3.1 tag** — it did not move. Real root cause = the vendored `patches/dxvk-gplasync-master.patch` itself: `checkAsyncCompilationCompat()` used a 1-name structured binding `const auto& [view] = ...getAttachment(i)`, written when `DxvkAttachment` had one member. DXVK 3.1's `DxvkAttachment` has **2 members** (`view` + `shadow`, `dxvk_framebuffer.h:29-30`), so `[view]` fails to compile. Masked in the nightly by warm **ccache** (20:31 main run served a cached object); the branch's cold build exposed it.
+
+**Fix:** patch line → `const auto& view = m_state.om.framebufferInfo.getAttachment(i).view;` (member access, matches the adjacent patched `.view->` line; same line count so hunk headers stay valid). Dry-run apply to a fresh v3.1 clone = all hunks succeed, exit 0. CI-compile proof = AIO re-dispatch **run `33215950780`** (head `158288d2`, off-main so create-release skips).
+
+#### Resume / open (user approval pending)
+- Await run `33215950780` green (gplasync/binsem compile cold + vanilla jobs green).
+- **FF-merge branch → `main`** — bundles the 2 vanilla jobs + the gplasync fix; unblocks the scheduled nightly in one shot.
 - Stage arm64ec vanilla 3.1 wcp to device Downloads (prefer AIO artifact `DXVK-v3.1-arm64ec.wcp`).
-- Decisions: vanilla jobs hard `needs` — make non-blocking? · add a "Vanilla" section to release-notes body?
+- Optional: harden workflow fallback to fire on compile-failure (not just apply-failure) · vanilla jobs non-blocking? · "Vanilla" release-notes section?
 
 ---
 
