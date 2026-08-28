@@ -39,11 +39,16 @@ The patch still *applies* (so the `--dry-run` fallback to v3.0 never fires) but 
 
 **Fix:** patch line → `const auto& view = m_state.om.framebufferInfo.getAttachment(i).view;` (member access, matches the adjacent patched `.view->` line; same line count so hunk headers stay valid). Dry-run apply to a fresh v3.1 clone = all hunks succeed, exit 0. CI-compile proof = AIO re-dispatch **run `33215950780`** (head `158288d2`, off-main so create-release skips).
 
+#### CI RESULT — run `33215950780` (head `158288d2`)
+✅ **All 6 DXVK jobs SUCCESS** — gplasync fix works: `Build DXVK (GPLAsync)`, `Build DXVK (ARM64EC)`, `Build DXVK BinSem (GPLAsync)`, `Build DXVK BinSem (ARM64EC)` all compile cold now; `Build DXVK Vanilla (Standard)` + `Build DXVK Vanilla (ARM64EC)` green. create-release skipped (off-main).
+
+⚠️ **Overall run red = a THIRD, unrelated break: FEXCore.** `Build FEXCore` + `Build FEXCore (PPA flavor)` failed on a FEX **master** build-script assertion: `config_generator.py:425 assert "AffectsCodeGen" in op_vals`. Recent FEX master commit added/renamed a config option without the `AffectsCodeGen` marker. FEX passed at 21:14 + in the 20:31 nightly → upstream broke it in the last ~hour. Unrelated to DXVK; blocks the nightly publish (FEX is a hard `needs`). NOT fixed — outside the DXVK task; options: pin FEX to last-good commit / wait for upstream / mark the option.
+
 #### Resume / open (user approval pending)
-- Await run `33215950780` green (gplasync/binsem compile cold + vanilla jobs green).
-- **FF-merge branch → `main`** — bundles the 2 vanilla jobs + the gplasync fix; unblocks the scheduled nightly in one shot.
+- DXVK side is done + green. **FF-merge branch → `main`** (bundles vanilla jobs + gplasync fix) — safe; nightly still won't publish until FEX is resolved.
+- Decide FEX: pin to last-good commit vs wait for upstream.
 - Stage arm64ec vanilla 3.1 wcp to device Downloads (prefer AIO artifact `DXVK-v3.1-arm64ec.wcp`).
-- Optional: harden workflow fallback to fire on compile-failure (not just apply-failure) · vanilla jobs non-blocking? · "Vanilla" release-notes section?
+- Optional: harden fallback (compile-fail) · vanilla jobs non-blocking? · "Vanilla" release-notes section?
 
 ---
 
