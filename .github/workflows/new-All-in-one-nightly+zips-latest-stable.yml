@@ -2038,6 +2038,255 @@ jobs:
             *.tzst
 
   # ==================================================================
+  # JOB 8b: DXVK Vanilla (Standard x64/x86)
+  # Clean upstream doitsujin/dxvk stable release, NO patches (no gplasync,
+  # no binsem). Repackaged straight from the official release tarball —
+  # upstream already ships stripped x64/x32 DLLs, so nothing is compiled
+  # here. Pins to the latest published DXVK release.
+  # ==================================================================
+  build-dxvk-vanilla:
+    name: Build DXVK Vanilla (Standard)
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates curl xz-utils jq zip tar
+
+      - name: Resolve latest DXVK release + fetch tarball
+        id: ver
+        run: |
+          TAG=$(gh api repos/doitsujin/dxvk/releases/latest --jq '.tag_name')
+          VER="${TAG#v}"
+          echo "ver=$VER" >> $GITHUB_OUTPUT
+          echo "Latest upstream DXVK release: $TAG (version $VER)"
+          gh release download "$TAG" -R doitsujin/dxvk -p "dxvk-${VER}.tar.gz" --clobber
+          tar -xzf "dxvk-${VER}.tar.gz"
+
+      - name: Package (clean vanilla naming)
+        run: |
+          VER="${{ steps.ver.outputs.ver }}"
+          rm -rf packaging
+          mkdir -p packaging
+          cp -r "dxvk-${VER}/x64" packaging/system32
+          cp -r "dxvk-${VER}/x32" packaging/syswow64
+          cat > packaging/profile.json <<EOF
+          {
+            "type": "DXVK",
+            "versionName": "v${VER}",
+            "versionCode": 0,
+            "description": "DXVK ${VER} (Upstream: Philip Rebohle). Vanilla upstream release, no patches.",
+            "files": [
+              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
+              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
+              { "source": "system32/d3d8.dll", "target": "\${system32}/d3d8.dll" },
+              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
+              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
+              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
+              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
+              { "source": "syswow64/d3d8.dll", "target": "\${syswow64}/d3d8.dll" },
+              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
+              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
+            ]
+          }
+          EOF
+          # WCP (xz, matching the flagship DXVK job)
+          tar -cJf "DXVK-v${VER}.wcp" -C packaging .
+          # ZIP
+          ( cd packaging && zip -r "../DXVK-v${VER}.zip" . )
+          ls -la "DXVK-v${VER}.wcp" "DXVK-v${VER}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-vanilla
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
+  # JOB 8c: DXVK Vanilla (ARM64EC)
+  # Clean upstream doitsujin/dxvk stable release cross-compiled for
+  # ARM64EC, NO patches. Upstream ships no ARM64EC binaries, so this is
+  # source-compiled (recipe mirrors the ARM64EC gplasync job minus the
+  # patches). Pins to the latest published DXVK release.
+  # ==================================================================
+  build-dxvk-arm64ec-vanilla:
+    name: Build DXVK Vanilla (ARM64EC)
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates curl xz-utils jq git build-essential \
+            python3 pkg-config zstd meson ninja-build wget unzip zip ccache
+
+      - name: Resolve latest DXVK release
+        id: ver
+        run: |
+          TAG=$(gh api repos/doitsujin/dxvk/releases/latest --jq '.tag_name')
+          VER="${TAG#v}"
+          echo "ver=$VER" >> $GITHUB_OUTPUT
+          echo "Latest upstream DXVK release: $TAG (version $VER)"
+
+      - name: Get week number (for glslang cache key)
+        id: date
+        run: echo "week=$(date +%Y-%W)" >> $GITHUB_OUTPUT
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-dxvk-vanilla-ec-${{ steps.ver.outputs.ver }}
+          restore-keys: ccache-dxvk-vanilla-ec-
+
+      - name: Cache glslang
+        id: cache-glslang
+        uses: actions/cache@v4
+        with:
+          path: glslang
+          key: glslang-master-tot-${{ runner.os }}-${{ steps.date.outputs.week }}
+          restore-keys: glslang-master-tot-${{ runner.os }}-
+
+      - name: Cache LLVM-MinGW
+        uses: actions/cache@v4
+        with:
+          path: /opt/llvm-mingw
+          key: llvm-mingw-20251104-ubuntu22
+
+      - name: Download glslang
+        if: steps.cache-glslang.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
+          unzip -qo glslang-master-linux-Release.zip -d glslang
+
+      - name: Add glslang to PATH
+        run: echo "$PWD/glslang/bin" >> $GITHUB_PATH
+
+      - name: Setup LLVM-MinGW
+        run: |
+          if [ ! -d "/opt/llvm-mingw/bin" ]; then
+            echo "Cache miss — downloading LLVM-MinGW..."
+            LLVM_MINGW_TAG="20251104"
+            wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
+            sudo mkdir -p /opt/llvm-mingw
+            sudo tar -C /opt/llvm-mingw --strip-components=1 -xJf llvm.tar.xz
+          else
+            echo "Cache hit — LLVM-MinGW ready."
+          fi
+          echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
+
+      - name: Configure ccache
+        run: |
+          ccache --max-size=1G
+          ccache --zero-stats
+
+      - name: Clone DXVK (vanilla, no patches)
+        run: |
+          VER="${{ steps.ver.outputs.ver }}"
+          git clone --branch "v${VER}" --recurse-submodules \
+            https://github.com/doitsujin/dxvk.git dxvk
+          cd dxvk
+          echo "COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Configure Cross-Files
+        run: |
+          cat <<EOF > arm64ec.txt
+          [binaries]
+          c = ['ccache', 'arm64ec-w64-mingw32-clang']
+          cpp = ['ccache', 'arm64ec-w64-mingw32-clang++']
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'arm64ec-w64-mingw32-windres'
+          widl = 'arm64ec-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          EOF
+
+          cat <<EOF > x86.txt
+          [binaries]
+          c = ['ccache', 'i686-w64-mingw32-clang']
+          cpp = ['ccache', 'i686-w64-mingw32-clang++']
+          ar = 'llvm-ar'
+          strip = 'llvm-strip'
+          windres = 'i686-w64-mingw32-windres'
+          widl = 'i686-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
+          EOF
+
+      - name: Build
+        run: |
+          cd dxvk
+          meson setup build-ec --cross-file ../arm64ec.txt -Dbuildtype=release -Dstrip=true
+          meson setup build-x86 --cross-file ../x86.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-ec -j$(nproc)
+          ninja -C build-x86 -j$(nproc)
+
+      - name: Print ccache stats
+        run: ccache --show-stats
+
+      - name: Package (clean vanilla naming)
+        run: |
+          VER="${{ steps.ver.outputs.ver }}"
+          copy_dll() {
+            SRC_DIR=$1; DEST_DIR=$2
+            cp "dxvk/$SRC_DIR/src/d3d11/d3d11.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d10/d3d10core.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d9/d3d9.dll" "$DEST_DIR/"
+            cp "dxvk/$SRC_DIR/src/d3d8/d3d8.dll" "$DEST_DIR/" || true
+            cp "dxvk/$SRC_DIR/src/dxgi/dxgi.dll" "$DEST_DIR/"
+          }
+          rm -rf packaging; mkdir -p packaging/system32 packaging/syswow64
+          copy_dll "build-ec" "packaging/system32"
+          copy_dll "build-x86" "packaging/syswow64"
+          llvm-strip --strip-all packaging/system32/*.dll
+          llvm-strip --strip-all packaging/syswow64/*.dll
+          cat > packaging/profile.json <<EOF
+          {
+            "type": "DXVK",
+            "versionName": "v${VER}-arm64ec",
+            "versionCode": 0,
+            "description": "DXVK ${VER} ARM64EC (Upstream: Philip Rebohle). Vanilla upstream release, no patches.",
+            "files": [
+              { "source": "system32/d3d10core.dll", "target": "\${system32}/d3d10core.dll" },
+              { "source": "system32/d3d11.dll", "target": "\${system32}/d3d11.dll" },
+              { "source": "system32/d3d8.dll", "target": "\${system32}/d3d8.dll" },
+              { "source": "system32/d3d9.dll", "target": "\${system32}/d3d9.dll" },
+              { "source": "system32/dxgi.dll", "target": "\${system32}/dxgi.dll" },
+              { "source": "syswow64/d3d10core.dll", "target": "\${syswow64}/d3d10core.dll" },
+              { "source": "syswow64/d3d11.dll", "target": "\${syswow64}/d3d11.dll" },
+              { "source": "syswow64/d3d8.dll", "target": "\${syswow64}/d3d8.dll" },
+              { "source": "syswow64/d3d9.dll", "target": "\${syswow64}/d3d9.dll" },
+              { "source": "syswow64/dxgi.dll", "target": "\${syswow64}/dxgi.dll" }
+            ]
+          }
+          EOF
+          ( cd packaging && ZSTD_CLEVEL=19 tar --zstd -cf "../DXVK-v${VER}-arm64ec.wcp" profile.json system32 syswow64 )
+          ( cd packaging && zip -r "../DXVK-v${VER}-arm64ec.zip" profile.json system32 syswow64 )
+          echo "packaged DXVK-v${VER}-arm64ec.wcp (commit ${COMMIT})"
+          ls -la "DXVK-v${VER}-arm64ec.wcp"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dxvk-arm64ec-vanilla
+          path: |
+            *.wcp
+            *.zip
+
+  # ==================================================================
   # JOB 9: Release
   # ==================================================================
   create-release:
@@ -2047,7 +2296,7 @@ jobs:
     # workflow_dispatch runs still build every job (validating the build) but never
     # publish a release or clobber the production nightly-latest that clients pull.
     if: github.ref == 'refs/heads/main'
-    needs: [build-box64-matrix, build-fex, build-fex-ppa, repack-fex-ppa-official, build-vkd3d, build-dxvk, build-vkd3d-arm64ec, build-dxvk-arm64ec, build-dxvk-binsem, build-dxvk-binsem-arm64ec, build-d7vk]
+    needs: [build-box64-matrix, build-fex, build-fex-ppa, repack-fex-ppa-official, build-vkd3d, build-dxvk, build-vkd3d-arm64ec, build-dxvk-arm64ec, build-dxvk-binsem, build-dxvk-binsem-arm64ec, build-d7vk, build-dxvk-vanilla, build-dxvk-arm64ec-vanilla]
     permissions:
       contents: write
       actions: write
