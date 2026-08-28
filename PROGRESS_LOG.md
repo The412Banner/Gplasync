@@ -21,14 +21,24 @@
 - Wired both into `create-release` `needs:`; artifacts auto-collected by the existing `download-artifact merge-multiple` + `*.wcp/*.zip` upload (no release-step change needed).
 - YAML validated locally via node `js-yaml` (14 jobs, needs updated, heredocs balanced, no tabs, unique artifact names).
 
-#### CI (⚠️ re-verify with `gh run view --json conclusion`)
+#### CI RESULT (verified via `gh run view --json conclusion`)
 - Standalone `dxvk-clean-arm64ec-vanilla.yml` version=3.1 → run `33211320518` = **success ✅**.
-- AIO on branch → run `33211682716` (headSha `fa415a1c`, off-main so `create-release` SKIPS): **Build DXVK Vanilla (Standard) = success ✅**; Build DXVK Vanilla (ARM64EC) finishing (twin standalone already passed).
+- AIO on branch → run `33211682716` (headSha `fa415a1c`, off-main): overall **failure**, but the parts that matter:
+  - ✅ **Build DXVK Vanilla (Standard) = success** (my new job)
+  - ✅ **Build DXVK Vanilla (ARM64EC) = success** (my new job)
+  - `Create Nightly Release = skipped` (correct, off-main)
+  - ❌ 4 **pre-existing** jobs failed: Build DXVK (GPLAsync/ARM64EC) + BinSem (GPLAsync/ARM64EC) — untouched by this change.
 
-#### Resume / open
-- On green: **FF-merge branch → `main`** (user approval pending) so the scheduled nightly produces vanilla.
-- Stage arm64ec vanilla 3.1 wcp to device Downloads (prefer AIO branch artifact `DXVK-v3.1-arm64ec.wcp`).
-- Decisions for user: vanilla jobs are hard `needs` deps (compile failure blocks nightly publish) — make non-blocking? · add a "Vanilla" section to the release-notes body heredoc?
+#### ⚠️ SEPARATE PRE-EXISTING BREAKAGE (found here, NOT fixed)
+The gplasync/binsem jobs build doitsujin **master HEAD** + `patches/dxvk-gplasync-master.patch`. **Upstream master drifted past v3.1**, breaking the patch at compile time:
+`dxvk_context.cpp:7691: only 1 name provided for structured binding — const auto& [view] = ...getAttachment(i); DxvkAttachment decomposes into 2 elements`.
+The patch still *applies* (so the `--dry-run` fallback to v3.0 never fires) but no longer *compiles*. The 20:37 nightly worked only because master HEAD == the 3.1 tag exactly; post-3.1 commits broke it. **This breaks tonight's scheduled main nightly too** (hard `needs` → create-release skips → no publish). Fix options: (a) re-vendor Ph42oN's master patch, (b) harden the fallback to also trigger on compile failure, (c) pin the gplasync jobs to the latest stable tag instead of master HEAD.
+
+#### Resume / open (user approval pending on all)
+- **Resolve the gplasync breakage first** (pick a/b/c) — until then no nightly publishes regardless of this branch; ideally bundle the fix with the vanilla merge.
+- **FF-merge branch → `main`** (validated-safe on its own).
+- Stage arm64ec vanilla 3.1 wcp to device Downloads (prefer AIO artifact `DXVK-v3.1-arm64ec.wcp`).
+- Decisions: vanilla jobs hard `needs` — make non-blocking? · add a "Vanilla" section to release-notes body?
 
 ---
 
