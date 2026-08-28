@@ -6,6 +6,32 @@
 
 ---
 
+## Session — 2026-08-28
+
+### [feat] — Add vanilla DXVK build jobs to the all-in-one nightly (2026-08-28)
+**Branch `feat/dxvk-vanilla-aio-jobs` → commit `fa415a1c` (pushed, NOT yet merged to `main`). Validation CI GREEN; awaiting user go to merge.**
+
+#### Context
+- Nightly `nightly-20260828-203737` shipped **DXVK v3.1** (real upstream stable tag, peeled commit `70d7508c`), but via the AIO's **master-tracking gplasync** job — so every shipped DXVK flavor is **gplasync (async)**. No vanilla (no-patch) build existed anywhere in the releases; the `dxvk-stable-matrix` "regular" base still carries binsem. `dxvk-clean-arm64ec-vanilla.yml` was the only true-vanilla path (manual, arm64ec-only, artifact-only).
+
+#### What changed
+- Added **two jobs** to `new-All-in-one-nightly+zips-latest-stable.yml`, both pinned to the **latest upstream stable release** (`gh api repos/doitsujin/dxvk/releases/latest`):
+  - `build-dxvk-vanilla` (std x64/x86) — repackages upstream's official release tarball `dxvk-<ver>.tar.gz` → `DXVK-v<ver>.wcp`, versionName `v<ver>`. No compile. Artifact `dxvk-vanilla`.
+  - `build-dxvk-arm64ec-vanilla` — cross-compiles arm64ec (LLVM-MinGW 20251104; recipe mirrors the arm64ec gplasync job minus the gplasync/binsem patches) → `DXVK-v<ver>-arm64ec.wcp`, versionName `v<ver>-arm64ec`. Artifact `dxvk-arm64ec-vanilla`.
+- Wired both into `create-release` `needs:`; artifacts auto-collected by the existing `download-artifact merge-multiple` + `*.wcp/*.zip` upload (no release-step change needed).
+- YAML validated locally via node `js-yaml` (14 jobs, needs updated, heredocs balanced, no tabs, unique artifact names).
+
+#### CI (⚠️ re-verify with `gh run view --json conclusion`)
+- Standalone `dxvk-clean-arm64ec-vanilla.yml` version=3.1 → run `33211320518` = **success ✅**.
+- AIO on branch → run `33211682716` (headSha `fa415a1c`, off-main so `create-release` SKIPS): **Build DXVK Vanilla (Standard) = success ✅**; Build DXVK Vanilla (ARM64EC) finishing (twin standalone already passed).
+
+#### Resume / open
+- On green: **FF-merge branch → `main`** (user approval pending) so the scheduled nightly produces vanilla.
+- Stage arm64ec vanilla 3.1 wcp to device Downloads (prefer AIO branch artifact `DXVK-v3.1-arm64ec.wcp`).
+- Decisions for user: vanilla jobs are hard `needs` deps (compile failure blocks nightly publish) — make non-blocking? · add a "Vanilla" section to the release-notes body heredoc?
+
+---
+
 ## Session — 2026-08-06
 
 ### [feat] — Add D7VK (DirectDraw/D3D7) all-in-one component (2026-08-06)
