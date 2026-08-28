@@ -52,7 +52,7 @@ index c84cf342..644a004d 100644
  
 +  bool DxvkContext::checkAsyncCompilationCompat() const {
 +    for (uint32_t i = 0; i < m_state.om.framebufferInfo.numAttachments(); i++) {
-+      const auto& [view] = m_state.om.framebufferInfo.getAttachment(i);
++      const auto& view = m_state.om.framebufferInfo.getAttachment(i).view;
 +      if (!view->getRtBindingAsyncCompilationCompat())
 +        return false;
 +    }
