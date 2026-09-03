@@ -1,41 +1,41 @@
 {
-  "triggered_at": "2026-09-03T12:23:31Z",
+  "triggered_at": "2026-09-03T16:46:43Z",
   "changed": [
     {
-      "repo": "ptitSeb/box64",
-      "name": "Box64 (Official)",
-      "old": "e367134",
-      "new": "e4c9577",
-      "full": "e4c9577f329e68283d91fe92f21118a8e71303b5",
-      "msg": "[DYNAREC] Fixed missing flags sync on truncated blocks (#4351)",
-      "date": "2026-09-03T09:39:52Z"
+      "repo": "FEX-Emu/FEX",
+      "name": "FEX",
+      "old": "d833f3a",
+      "new": "ac6be77",
+      "full": "ac6be77592d8ae1f5def394a507d3995ead0cf91",
+      "msg": "Merge pull request #5900 from simon902/fincstp_tag_word",
+      "date": "2026-09-03T13:43:37Z"
     },
     {
-      "repo": "HansKristian-Work/vkd3d-proton",
-      "name": "VKD3D-Proton",
-      "old": "634d341",
-      "new": "ec6d043",
-      "full": "ec6d0434deb392c6c9901b9912fbb934ce28c515",
-      "msg": "vkd3d: Explicitly ignore wave128 requests.",
-      "date": "2026-09-03T11:29:56Z"
+      "repo": "doitsujin/dxvk",
+      "name": "DXVK",
+      "old": "adeda66",
+      "new": "9c4ee21",
+      "full": "9c4ee2117f8ef028533a4736e32e99aa22faf986",
+      "msg": "[d3d11] Implement non-default swapchain scaling modes",
+      "date": "2026-09-03T14:04:42Z"
     },
     {
       "repo": "WinterSnowfall/d7vk",
       "name": "D7VK (DDraw/D3D7)",
-      "old": "cbe94fa",
-      "new": "66d2a8f",
-      "full": "66d2a8f1945c96d1a80fbdcd9e0987c88adf52ed",
-      "msg": "[d3d7/6] Validate adapter support during depth format enumeration",
-      "date": "2026-09-03T08:36:54Z"
+      "old": "66d2a8f",
+      "new": "a01d45d",
+      "full": "a01d45d03dcd4637cbc721a1092ba3cc7a51e489",
+      "msg": "[meta] Add an option to disable overlay surface support",
+      "date": "2026-09-03T14:39:30Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "1a2dab3",
-      "new": "4caded3",
-      "full": "4caded39910a4d181e0e4c3dd0f5812b7434c922",
-      "msg": "pan/ci: document recent regression in xfails",
-      "date": "2026-09-03T12:01:44.000+00:00"
+      "old": "4caded3",
+      "new": "ea488f6",
+      "full": "ea488f65d44b3eb98336e790bd209966c63a458d",
+      "msg": "tu: Don't try to use lazy allocation for MSRTSS if the device can't.",
+      "date": "2026-09-03T16:21:18.000+00:00"
     }
   ]
 }
