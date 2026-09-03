@@ -50,7 +50,7 @@ A single JSON index of every component published here — point any compatible W
 <!-- NIGHTLY-LATEST-START -->
 | | |
 | :--- | :--- |
-| **Release** | [🔗 nightly-20260903-123030](https://github.com/The412Banner/Nightlies/releases/tag/nightly-20260903-123030) |
+| **Release** | [🔗 nightly-20260903-130412](https://github.com/The412Banner/Nightlies/releases/tag/nightly-20260903-130412) |
 | **FEXCore** | [`d833f3ae6`](https://github.com/FEX-Emu/FEX/commit/d833f3ae6) — FEX-2608+183-Nightly-d833f3ae6 |
 | **VKD3D-Proton (Std)** | [`ec6d0434`](https://github.com/HansKristian-Work/vkd3d-proton/commit/ec6d0434) |
 | **VKD3D-Proton (ARM64EC)** | [`ec6d0434`](https://github.com/HansKristian-Work/vkd3d-proton/commit/ec6d0434) |
@@ -61,7 +61,7 @@ A single JSON index of every component published here — point any compatible W
 | **D7VK (DDraw/D3D7)** | [`66d2a8f19`](https://github.com/WinterSnowfall/d7vk/commit/66d2a8f19) — DDraw Wrapper slot; `.tzst` = bundled-asset refresh |
 | **Box64** | [ptitSeb/box64](https://github.com/ptitSeb/box64/commits/main) + [Pipetto/box64](https://github.com/Pipetto-crypto/box64/commits/main) |
 | **Turnip** | [v26.3.0-20260903](https://github.com/The412Banner/Banners-Turnip/releases/tag/v26.3.0-20260903) — Turnip v26.3.0-20260903 |
-| **Files** | [`.wcp` and `.zip` — scroll to Assets](https://github.com/The412Banner/Nightlies/releases/tag/nightly-20260903-123030) |
+| **Files** | [`.wcp` and `.zip` — scroll to Assets](https://github.com/The412Banner/Nightlies/releases/tag/nightly-20260903-130412) |
 <!-- NIGHTLY-LATEST-END -->
 
 </details>
