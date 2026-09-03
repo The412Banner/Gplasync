@@ -1,41 +1,23 @@
 {
-  "triggered_at": "2026-09-03T19:31:07Z",
+  "triggered_at": "2026-09-03T22:02:37Z",
   "changed": [
-    {
-      "repo": "ptitSeb/box64",
-      "name": "Box64 (Official)",
-      "old": "e4c9577",
-      "new": "31106cd",
-      "full": "31106cd00e41e25b6d484e623e2052e303e50697",
-      "msg": "[RV64_DYNAREC] Added more opcodes (#4353)",
-      "date": "2026-09-03T17:26:40Z"
-    },
     {
       "repo": "FEX-Emu/FEX",
       "name": "FEX",
-      "old": "ac6be77",
-      "new": "7fe7c39",
-      "full": "7fe7c39a00193026583073f913f09d355c55084e",
-      "msg": "Merge pull request #5911 from javelina-pkwy/fix/windows-syscalls-arm64ec",
-      "date": "2026-09-03T18:48:02Z"
-    },
-    {
-      "repo": "doitsujin/dxvk",
-      "name": "DXVK",
-      "old": "9c4ee21",
-      "new": "d7ac258",
-      "full": "d7ac2580aa274a14a500e74edbe4ec6aae250e4a",
-      "msg": "[d3d9] Ensure to always submit if ThrottleAllocation hits threshold",
-      "date": "2026-09-03T17:41:58Z"
+      "old": "7fe7c39",
+      "new": "e010e8a",
+      "full": "e010e8adf03a26d3086ea2bf7cdf90d7e2e91778",
+      "msg": "Merge pull request #5897 from Plagman/plagman/anon_key_mr",
+      "date": "2026-09-03T21:38:26Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "ea488f6",
-      "new": "f8dadab",
-      "full": "f8dadabfb2dbf5436540cd45a69604c3673a1252",
-      "msg": "radv: add a drirc option to select the image clear/copy/blit/resolve path",
-      "date": "2026-09-03T19:04:26.000+00:00"
+      "old": "f8dadab",
+      "new": "29299f8",
+      "full": "29299f8d651b9e1c9ce5f7256b3cdcd492c6f4f3",
+      "msg": "kraid/hw_tests: Add LD_PKA hardware bug test",
+      "date": "2026-09-03T21:24:31.000+00:00"
     }
   ]
 }
