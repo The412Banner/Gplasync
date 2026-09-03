@@ -1,41 +1,41 @@
 {
-  "triggered_at": "2026-09-03T07:32:01Z",
+  "triggered_at": "2026-09-03T12:23:31Z",
   "changed": [
     {
       "repo": "ptitSeb/box64",
       "name": "Box64 (Official)",
-      "old": "d79d0ef",
-      "new": "e367134",
-      "full": "e367134e7fed0a38ad950713554aea4fed91ae0a",
-      "msg": "[LA64_DYNAREC] Refined illegal opcodes handling (#4349)",
-      "date": "2026-09-03T07:26:49Z"
+      "old": "e367134",
+      "new": "e4c9577",
+      "full": "e4c9577f329e68283d91fe92f21118a8e71303b5",
+      "msg": "[DYNAREC] Fixed missing flags sync on truncated blocks (#4351)",
+      "date": "2026-09-03T09:39:52Z"
     },
     {
-      "repo": "FEX-Emu/FEX",
-      "name": "FEX",
-      "old": "c4c82f2",
-      "new": "d833f3a",
-      "full": "d833f3ae675a404212fbdf1b96ffa619c6861f1f",
-      "msg": "Merge pull request #5906 from Sonicadvance1/229",
-      "date": "2026-09-03T02:18:02Z"
+      "repo": "HansKristian-Work/vkd3d-proton",
+      "name": "VKD3D-Proton",
+      "old": "634d341",
+      "new": "ec6d043",
+      "full": "ec6d0434deb392c6c9901b9912fbb934ce28c515",
+      "msg": "vkd3d: Explicitly ignore wave128 requests.",
+      "date": "2026-09-03T11:29:56Z"
     },
     {
       "repo": "WinterSnowfall/d7vk",
       "name": "D7VK (DDraw/D3D7)",
-      "old": "7acd340",
-      "new": "cbe94fa",
-      "full": "cbe94fabf03a31f1a06dfb2aa884917be1726348",
-      "msg": "[meta] Streamline shadow surface creation",
-      "date": "2026-09-03T07:20:36Z"
+      "old": "cbe94fa",
+      "new": "66d2a8f",
+      "full": "66d2a8f1945c96d1a80fbdcd9e0987c88adf52ed",
+      "msg": "[d3d7/6] Validate adapter support during depth format enumeration",
+      "date": "2026-09-03T08:36:54Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "946b15e",
-      "new": "1a2dab3",
-      "full": "1a2dab30fa5f3c368255753caa838b92a95380ee",
-      "msg": "amd: fix GFX12 SPM GCEA_SE counter aliasing with GCEA_CPWD",
-      "date": "2026-09-03T06:56:46.000+00:00"
+      "old": "1a2dab3",
+      "new": "4caded3",
+      "full": "4caded39910a4d181e0e4c3dd0f5812b7434c922",
+      "msg": "pan/ci: document recent regression in xfails",
+      "date": "2026-09-03T12:01:44.000+00:00"
     }
   ]
 }
