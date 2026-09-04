@@ -1,23 +1,32 @@
 {
-  "triggered_at": "2026-09-04T17:55:26Z",
+  "triggered_at": "2026-09-04T20:05:18Z",
   "changed": [
     {
-      "repo": "ptitSeb/box64",
-      "name": "Box64 (Official)",
-      "old": "f21db8d",
-      "new": "6ff9276",
-      "full": "6ff9276b1b8aacae131454482a4b68889532269a",
-      "msg": "[RV64_DYNAREC] Support VZEROUPPER and VZEROALL opcode (#4358)",
-      "date": "2026-09-04T15:06:11Z"
+      "repo": "FEX-Emu/FEX",
+      "name": "FEX",
+      "old": "7052f91",
+      "new": "7187bc0",
+      "full": "7187bc0e598f401c4839bbce3f2bfe93ee30ca3f",
+      "msg": "Merge pull request #5922 from simon902/MOVVectorUnalignedOp_Selfmove",
+      "date": "2026-09-04T19:07:19Z"
+    },
+    {
+      "repo": "WinterSnowfall/d7vk",
+      "name": "D7VK (DDraw/D3D7)",
+      "old": "5db3f7b",
+      "new": "b6857dd",
+      "full": "b6857dd3cf8eb52d9e0546b487619c5aff691995",
+      "msg": "[d3d3] Work around unspecified dwVertexCount",
+      "date": "2026-09-04T19:55:07Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "e62173b",
-      "new": "61b95d3",
-      "full": "61b95d331d7a9c8346d4d601796f81c15c99e89e",
-      "msg": "tu/tile_config: fix extent compatibility check when merging FDM bins",
-      "date": "2026-09-04T17:25:50.000+00:00"
+      "old": "61b95d3",
+      "new": "169cbbf",
+      "full": "169cbbf12a68779483c8a02e1f97f35b5e2f18c5",
+      "msg": "anv: fixup dynamic buffers with ANV_DEBUG=bindless",
+      "date": "2026-09-04T18:41:18.000+00:00"
     }
   ]
 }
