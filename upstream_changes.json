@@ -1,23 +1,41 @@
 {
-  "triggered_at": "2026-09-04T05:16:08Z",
+  "triggered_at": "2026-09-04T10:13:31Z",
   "changed": [
+    {
+      "repo": "ptitSeb/box64",
+      "name": "Box64 (Official)",
+      "old": "31106cd",
+      "new": "f21db8d",
+      "full": "f21db8d170d7ff2c4a10969ca612e26520e7abcb",
+      "msg": "[LA64_DYNAREC] Added fastpath for native nofpu calls (#4357)",
+      "date": "2026-09-04T08:48:58Z"
+    },
     {
       "repo": "FEX-Emu/FEX",
       "name": "FEX",
-      "old": "e010e8a",
-      "new": "e7836f2",
-      "full": "e7836f26dd2ffc452b21dd55b77da7bf24d7b9fb",
-      "msg": "Merge pull request #5914 from Sonicadvance1/230",
-      "date": "2026-09-04T03:13:43Z"
+      "old": "e7836f2",
+      "new": "a454845",
+      "full": "a454845ffdee5bc5c6803a3972d6adaff03dced0",
+      "msg": "Merge pull request #5909 from simon902/fxch_tag_word",
+      "date": "2026-09-04T06:50:17Z"
+    },
+    {
+      "repo": "HansKristian-Work/vkd3d-proton",
+      "name": "VKD3D-Proton",
+      "old": "ec6d043",
+      "new": "35bdee1",
+      "full": "35bdee1435c94f8c3548725fcb046595b263bd7e",
+      "msg": "vkd3d: Add wave32 workaround for Onimusha: Way of the Sword",
+      "date": "2026-09-04T10:12:30Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "112378e",
-      "new": "278a816",
-      "full": "278a816ebdcf8cd9ab6dcc85a60c4cc4711b6269",
-      "msg": "anv: toggle anv_always_bindless for XPlane-12",
-      "date": "2026-09-04T04:30:10.000+00:00"
+      "old": "278a816",
+      "new": "84cbbd2",
+      "full": "84cbbd2a2eef7f13368fc9a1db2c73b2afa41829",
+      "msg": "glsl: stop using strtok()",
+      "date": "2026-09-04T08:06:32.000+00:00"
     }
   ]
 }
