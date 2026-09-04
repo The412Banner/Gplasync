@@ -1,32 +1,23 @@
 {
-  "triggered_at": "2026-09-04T14:38:22Z",
+  "triggered_at": "2026-09-04T17:55:26Z",
   "changed": [
     {
-      "repo": "FEX-Emu/FEX",
-      "name": "FEX",
-      "old": "a454845",
-      "new": "7052f91",
-      "full": "7052f91495ed7ba87091fac5cb825b7ef133f771",
-      "msg": "Merge pull request #5919 from simon902/fst_tag_word",
-      "date": "2026-09-04T10:34:08Z"
-    },
-    {
-      "repo": "WinterSnowfall/d7vk",
-      "name": "D7VK (DDraw/D3D7)",
-      "old": "a01d45d",
-      "new": "5db3f7b",
-      "full": "5db3f7b6c32690b365e9758985a2377250209c0c",
-      "msg": "[meta] Fix up potential surface leaks during EnumSurfaces",
-      "date": "2026-09-04T10:34:07Z"
+      "repo": "ptitSeb/box64",
+      "name": "Box64 (Official)",
+      "old": "f21db8d",
+      "new": "6ff9276",
+      "full": "6ff9276b1b8aacae131454482a4b68889532269a",
+      "msg": "[RV64_DYNAREC] Support VZEROUPPER and VZEROALL opcode (#4358)",
+      "date": "2026-09-04T15:06:11Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "84cbbd2",
-      "new": "e62173b",
-      "full": "e62173bc072083f50f1f140ce41ac431ee029da8",
-      "msg": "ac/nir/fixup_smem_loads_null_prt: stop manually chasing scalars",
-      "date": "2026-09-04T12:54:35.000+00:00"
+      "old": "e62173b",
+      "new": "61b95d3",
+      "full": "61b95d331d7a9c8346d4d601796f81c15c99e89e",
+      "msg": "tu/tile_config: fix extent compatibility check when merging FDM bins",
+      "date": "2026-09-04T17:25:50.000+00:00"
     }
   ]
 }
