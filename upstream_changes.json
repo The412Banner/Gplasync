@@ -1,14 +1,23 @@
 {
-  "triggered_at": "2026-09-04T00:33:30Z",
+  "triggered_at": "2026-09-04T05:16:08Z",
   "changed": [
+    {
+      "repo": "FEX-Emu/FEX",
+      "name": "FEX",
+      "old": "e010e8a",
+      "new": "e7836f2",
+      "full": "e7836f26dd2ffc452b21dd55b77da7bf24d7b9fb",
+      "msg": "Merge pull request #5914 from Sonicadvance1/230",
+      "date": "2026-09-04T03:13:43Z"
+    },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "29299f8",
-      "new": "112378e",
-      "full": "112378e10d8eba296abbfc9c63cd966fbe71bbce",
-      "msg": "anv: Fix barrier after out of place copy AS",
-      "date": "2026-09-03T23:55:37.000+00:00"
+      "old": "112378e",
+      "new": "278a816",
+      "full": "278a816ebdcf8cd9ab6dcc85a60c4cc4711b6269",
+      "msg": "anv: toggle anv_always_bindless for XPlane-12",
+      "date": "2026-09-04T04:30:10.000+00:00"
     }
   ]
 }
