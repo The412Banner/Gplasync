@@ -1,23 +1,32 @@
 {
-  "triggered_at": "2026-09-05T00:29:30Z",
+  "triggered_at": "2026-09-05T09:42:24Z",
   "changed": [
+    {
+      "repo": "ptitSeb/box64",
+      "name": "Box64 (Official)",
+      "old": "6ff9276",
+      "new": "fffc398",
+      "full": "fffc39881af2fa15354763b9ec68ecc2ac0a968e",
+      "msg": "[RV64_DYNAREC] Fixed PMULDQ vector path using wrong scratch register on VLEN=128",
+      "date": "2026-09-05T07:41:12Z"
+    },
     {
       "repo": "FEX-Emu/FEX",
       "name": "FEX",
-      "old": "b78bde7",
-      "new": "e3c6b37",
-      "full": "e3c6b37f706be93ffaa5f69ed1dba1964a131cc6",
-      "msg": "Merge pull request #5924 from Sonicadvance1/232",
-      "date": "2026-09-04T23:08:44Z"
+      "old": "e3c6b37",
+      "new": "abec314",
+      "full": "abec31472099927cecf5a86f54c6a3c4ac032ba1",
+      "msg": "Merge pull request #5926 from Sonicadvance1/234",
+      "date": "2026-09-05T07:29:29Z"
     },
     {
-      "repo": "mesa/mesa",
-      "name": "Mesa (Turnip)",
-      "old": "2d79489",
-      "new": "23373e9",
-      "full": "23373e9fce2af674bd61a2501548be2ed035880b",
-      "msg": "brw: Drop debug fprintf accidentally left in dfceddb18554",
-      "date": "2026-09-04T16:07:49.000-07:00"
+      "repo": "WinterSnowfall/d7vk",
+      "name": "D7VK (DDraw/D3D7)",
+      "old": "b6857dd",
+      "new": "356213a",
+      "full": "356213adc41d35a2da5a3bf6bab01308b9cdb3dc",
+      "msg": "[d3d5/3] Relax RT surface validations",
+      "date": "2026-09-05T08:23:25Z"
     }
   ]
 }
