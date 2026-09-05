@@ -1,23 +1,23 @@
 {
-  "triggered_at": "2026-09-04T22:39:47Z",
+  "triggered_at": "2026-09-05T00:29:30Z",
   "changed": [
     {
       "repo": "FEX-Emu/FEX",
       "name": "FEX",
-      "old": "7187bc0",
-      "new": "b78bde7",
-      "full": "b78bde7ec8e8fe4e3d05883ce12cb67fbe11dc47",
-      "msg": "Merge pull request #5923 from Sonicadvance1/231",
-      "date": "2026-09-04T21:54:36Z"
+      "old": "b78bde7",
+      "new": "e3c6b37",
+      "full": "e3c6b37f706be93ffaa5f69ed1dba1964a131cc6",
+      "msg": "Merge pull request #5924 from Sonicadvance1/232",
+      "date": "2026-09-04T23:08:44Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "169cbbf",
-      "new": "2d79489",
-      "full": "2d794898097924fbac462031a00e69e7e5c212d1",
-      "msg": "llvmpipe: force alignment for Windows texture allocations",
-      "date": "2026-09-04T21:24:39.000+00:00"
+      "old": "2d79489",
+      "new": "23373e9",
+      "full": "23373e9fce2af674bd61a2501548be2ed035880b",
+      "msg": "brw: Drop debug fprintf accidentally left in dfceddb18554",
+      "date": "2026-09-04T16:07:49.000-07:00"
     }
   ]
 }
