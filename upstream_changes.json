@@ -1,32 +1,14 @@
 {
-  "triggered_at": "2026-09-05T09:42:24Z",
+  "triggered_at": "2026-09-05T16:24:35Z",
   "changed": [
     {
-      "repo": "ptitSeb/box64",
-      "name": "Box64 (Official)",
-      "old": "6ff9276",
-      "new": "fffc398",
-      "full": "fffc39881af2fa15354763b9ec68ecc2ac0a968e",
-      "msg": "[RV64_DYNAREC] Fixed PMULDQ vector path using wrong scratch register on VLEN=128",
-      "date": "2026-09-05T07:41:12Z"
-    },
-    {
-      "repo": "FEX-Emu/FEX",
-      "name": "FEX",
-      "old": "e3c6b37",
-      "new": "abec314",
-      "full": "abec31472099927cecf5a86f54c6a3c4ac032ba1",
-      "msg": "Merge pull request #5926 from Sonicadvance1/234",
-      "date": "2026-09-05T07:29:29Z"
-    },
-    {
-      "repo": "WinterSnowfall/d7vk",
-      "name": "D7VK (DDraw/D3D7)",
-      "old": "b6857dd",
-      "new": "356213a",
-      "full": "356213adc41d35a2da5a3bf6bab01308b9cdb3dc",
-      "msg": "[d3d5/3] Relax RT surface validations",
-      "date": "2026-09-05T08:23:25Z"
+      "repo": "mesa/mesa",
+      "name": "Mesa (Turnip)",
+      "old": "23373e9",
+      "new": "86158b8",
+      "full": "86158b8c7467cadcd24f8a8cf02aa3bc748f7e3f",
+      "msg": "brw: Skip DPAS in has_invalid_dst_region",
+      "date": "2026-09-05T15:44:28.000+00:00"
     }
   ]
 }
