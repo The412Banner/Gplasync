@@ -1,23 +1,14 @@
 {
-  "triggered_at": "2026-09-06T16:35:30Z",
+  "triggered_at": "2026-09-06T20:57:49Z",
   "changed": [
     {
-      "repo": "WinterSnowfall/d7vk",
-      "name": "D7VK (DDraw/D3D7)",
-      "old": "7161618",
-      "new": "e58f3ff",
-      "full": "e58f3ffe31ccd313d814cf281b98c88508156ab3",
-      "msg": "[meta] Improve the robustness of DDraw interface resolution",
-      "date": "2026-09-06T13:34:15Z"
-    },
-    {
-      "repo": "mesa/mesa",
-      "name": "Mesa (Turnip)",
-      "old": "19935f7",
-      "new": "c3b008c",
-      "full": "c3b008c1ba01d455351b762253ef44c3ca19653f",
-      "msg": "nir/serialize: set info.spec to NULL",
-      "date": "2026-09-06T14:08:12.000+00:00"
+      "repo": "ptitSeb/box64",
+      "name": "Box64 (Official)",
+      "old": "b9bd355",
+      "new": "b5697f4",
+      "full": "b5697f410770bf71d688c44b2cbb533053dba2d7",
+      "msg": "[CMAKE] Disable PIE when fixing Box64 load address (#4362)",
+      "date": "2026-09-06T19:01:19Z"
     }
   ]
 }
