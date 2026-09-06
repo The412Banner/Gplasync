@@ -1,14 +1,23 @@
 {
-  "triggered_at": "2026-09-05T16:24:35Z",
+  "triggered_at": "2026-09-06T09:57:25Z",
   "changed": [
+    {
+      "repo": "FEX-Emu/FEX",
+      "name": "FEX",
+      "old": "abec314",
+      "new": "bf70dee",
+      "full": "bf70dee3ae07019cad73085862d4fe7883446d34",
+      "msg": "Merge pull request #5928 from Plagman/plagman/jittail_mr",
+      "date": "2026-09-06T05:39:05Z"
+    },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "23373e9",
-      "new": "86158b8",
-      "full": "86158b8c7467cadcd24f8a8cf02aa3bc748f7e3f",
-      "msg": "brw: Skip DPAS in has_invalid_dst_region",
-      "date": "2026-09-05T15:44:28.000+00:00"
+      "old": "86158b8",
+      "new": "19935f7",
+      "full": "19935f7e39047146adf1dda213e923b944eefaeb",
+      "msg": "Uprev VVL to ad4ed518c3c9783b9c9ff912c205c987b17d7bf4",
+      "date": "2026-09-06T00:06:46.000+00:00"
     }
   ]
 }
