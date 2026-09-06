@@ -1,23 +1,32 @@
 {
-  "triggered_at": "2026-09-06T09:57:25Z",
+  "triggered_at": "2026-09-06T13:23:08Z",
   "changed": [
+    {
+      "repo": "ptitSeb/box64",
+      "name": "Box64 (Official)",
+      "old": "fffc398",
+      "new": "b9bd355",
+      "full": "b9bd355e12d4060763c98e3473b7130f22ba1f36",
+      "msg": "[RV64_DYNAREC] Added AES and SHA opcodes (#4366)",
+      "date": "2026-09-06T11:00:54Z"
+    },
     {
       "repo": "FEX-Emu/FEX",
       "name": "FEX",
-      "old": "abec314",
-      "new": "bf70dee",
-      "full": "bf70dee3ae07019cad73085862d4fe7883446d34",
-      "msg": "Merge pull request #5928 from Plagman/plagman/jittail_mr",
-      "date": "2026-09-06T05:39:05Z"
+      "old": "bf70dee",
+      "new": "a77d00a",
+      "full": "a77d00acaefe80ae5feccc4720bb0e7305ec2bb4",
+      "msg": "Merge pull request #5929 from Plagman/plagman/smc_mr",
+      "date": "2026-09-06T10:24:15Z"
     },
     {
-      "repo": "mesa/mesa",
-      "name": "Mesa (Turnip)",
-      "old": "86158b8",
-      "new": "19935f7",
-      "full": "19935f7e39047146adf1dda213e923b944eefaeb",
-      "msg": "Uprev VVL to ad4ed518c3c9783b9c9ff912c205c987b17d7bf4",
-      "date": "2026-09-06T00:06:46.000+00:00"
+      "repo": "WinterSnowfall/d7vk",
+      "name": "D7VK (DDraw/D3D7)",
+      "old": "356213a",
+      "new": "7161618",
+      "full": "7161618772454987575bec7d1d9b4d6b5dd8141d",
+      "msg": "[meta] Improve the robustness of DDraw interface resolution",
+      "date": "2026-09-06T11:09:42Z"
     }
   ]
 }
