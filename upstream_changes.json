@@ -1,32 +1,23 @@
 {
-  "triggered_at": "2026-09-06T13:23:08Z",
+  "triggered_at": "2026-09-06T16:35:30Z",
   "changed": [
-    {
-      "repo": "ptitSeb/box64",
-      "name": "Box64 (Official)",
-      "old": "fffc398",
-      "new": "b9bd355",
-      "full": "b9bd355e12d4060763c98e3473b7130f22ba1f36",
-      "msg": "[RV64_DYNAREC] Added AES and SHA opcodes (#4366)",
-      "date": "2026-09-06T11:00:54Z"
-    },
-    {
-      "repo": "FEX-Emu/FEX",
-      "name": "FEX",
-      "old": "bf70dee",
-      "new": "a77d00a",
-      "full": "a77d00acaefe80ae5feccc4720bb0e7305ec2bb4",
-      "msg": "Merge pull request #5929 from Plagman/plagman/smc_mr",
-      "date": "2026-09-06T10:24:15Z"
-    },
     {
       "repo": "WinterSnowfall/d7vk",
       "name": "D7VK (DDraw/D3D7)",
-      "old": "356213a",
-      "new": "7161618",
-      "full": "7161618772454987575bec7d1d9b4d6b5dd8141d",
+      "old": "7161618",
+      "new": "e58f3ff",
+      "full": "e58f3ffe31ccd313d814cf281b98c88508156ab3",
       "msg": "[meta] Improve the robustness of DDraw interface resolution",
-      "date": "2026-09-06T11:09:42Z"
+      "date": "2026-09-06T13:34:15Z"
+    },
+    {
+      "repo": "mesa/mesa",
+      "name": "Mesa (Turnip)",
+      "old": "19935f7",
+      "new": "c3b008c",
+      "full": "c3b008c1ba01d455351b762253ef44c3ca19653f",
+      "msg": "nir/serialize: set info.spec to NULL",
+      "date": "2026-09-06T14:08:12.000+00:00"
     }
   ]
 }
