@@ -1,14 +1,41 @@
 {
-  "triggered_at": "2026-09-06T20:57:49Z",
+  "triggered_at": "2026-09-07T11:07:27Z",
   "changed": [
     {
       "repo": "ptitSeb/box64",
       "name": "Box64 (Official)",
-      "old": "b9bd355",
-      "new": "b5697f4",
-      "full": "b5697f410770bf71d688c44b2cbb533053dba2d7",
-      "msg": "[CMAKE] Disable PIE when fixing Box64 load address (#4362)",
-      "date": "2026-09-06T19:01:19Z"
+      "old": "b5697f4",
+      "new": "36d1cd7",
+      "full": "36d1cd790a6992cf188ef0ad5c5536d811c96d0c",
+      "msg": "[WRAPPER] Fix FTSENT layout mismatch (#4329)",
+      "date": "2026-09-07T08:19:55Z"
+    },
+    {
+      "repo": "FEX-Emu/FEX",
+      "name": "FEX",
+      "old": "a77d00a",
+      "new": "42c6632",
+      "full": "42c663269b00d27efa818f0a8f77cb0459458008",
+      "msg": "Merge pull request #5910 from Plagman/plagman/mono_initial_caching",
+      "date": "2026-09-07T06:45:17Z"
+    },
+    {
+      "repo": "HansKristian-Work/vkd3d-proton",
+      "name": "VKD3D-Proton",
+      "old": "35bdee1",
+      "new": "056939e",
+      "full": "056939e6a947068f218e9a3b2c6d0d07523f0342",
+      "msg": "vkd3d: Implement VK_VALVE_buffer_device_address_allocation_alignment",
+      "date": "2026-09-07T09:58:52Z"
+    },
+    {
+      "repo": "mesa/mesa",
+      "name": "Mesa (Turnip)",
+      "old": "c3b008c",
+      "new": "ea85c4c",
+      "full": "ea85c4c2db3dcb6a9022081ef07ebdbbcb744a64",
+      "msg": "subprojects: uprev venus-protocol to v1.1.3",
+      "date": "2026-09-07T08:32:04.000+00:00"
     }
   ]
 }
