@@ -592,3 +592,4 @@ at `dxvk_graphics.cpp:1397`. Jobs clone DXVK `HEAD` (floating), so it broke live
 - Patch does NOT apply to upstream master (`35bdee14`, uses `d3d12_caps.options1.WaveLaneCount*` + ALLOW_WAVE32 machinery) — re-derive if ever rebased.
 
 **Caveat:** shaders assuming exactly 32 lanes for wave intrinsics may mis-render; this is a compat hack, not a fix. Device-proof pending.
+- ✅ BUILD GREEN 2026-09-06 23:44 — run 34080400659 (headSha `c9a1bf89`), artifact `vkd3d-wave64-relax`. `VKD3D-Proton-3.1.0-wave64-relax.wcp` sha256 `935fc1e48e3ba92a6d22292d5028c3aa2adeff5ea6ecfb7c28285d3db52249d8` (4.68 MB; profile.json + system32 x64 + syswow64 i386, byte sizes identical to the stock d01924b6 profile; `relax_wave_size` string present in both d3d12core.dll). Staged to device `/sdcard/Download/VKD3D-Proton-3.1.0-wave64-relax.wcp`. NOT installed into any container; device-proof pending.
