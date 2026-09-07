@@ -578,3 +578,17 @@ at `dxvk_graphics.cpp:1397`. Jobs clone DXVK `HEAD` (floating), so it broke live
 
 #### Files touched
 - `.github/workflows/new-All-in-one-nightly+zips-latest-stable.yml`
+
+## 2026-09-06 — VKD3D-Proton relax_wave_size experimental build (artifact-only)
+
+**Why:** Serious Sam Shatterverse (UE 5.5.4, SM6-only, `[WaveSize(32)]` compute shaders) dies at frame 1 on Adreno 750 / Turnip (subgroup range 64..128): vkd3d `d3d12_device_validate_shader_meta` rejects 39 compute PSOs (`Required WaveSize range [32, 32], but supported range is [64, 128]`) → UE `80070057` → RenderThread null-PSO AV.
+
+**What:** new workflow `.github/workflows/vkd3d-wave-relax.yml` (workflow_dispatch, artifact-only, no release, no catalog change) builds upstream vkd3d-proton pinned at `d01924b6` (same commit as the installed `3.0.1-d01924b6-1` profile) with `patches/vkd3d-proton-relax-wave-size.patch`:
+- new `VKD3D_CONFIG` flags `relax_wave_size` / `no_relax_wave_size` (`config_flag_decl.h`, `reserved0` 26→24 to keep the 96-bit STATIC_ASSERT)
+- `device.c`: relax flag is DEFAULT-ON (set in `vkd3d_instance_deduce_config_flags_from_environment` unless `no_relax_wave_size`); `d3d12_device_validate_shader_meta` no longer returns false when the required range misses the device range — one-time WARN instead
+- `state.c`: `vkd3d_setup_shader_stage` clamps `requiredSubgroupSize` into `[minSubgroupSize, maxSubgroupSize]` (32 → 64 on Adreno) so Vulkan never sees an illegal size
+- dxil-spirv untouched (verified: WaveGetLaneCount lowers to dynamic `BuiltInSubgroupSize`, no `OpExecutionMode SubgroupSize` emitted)
+- x64 + x86 only (game is x64; syswow64 for profile parity). profile versionName `3.1.0-wave64-relax` / versionCode 1 → installs as `3.1.0-wave64-relax-1`.
+- Patch does NOT apply to upstream master (`35bdee14`, uses `d3d12_caps.options1.WaveLaneCount*` + ALLOW_WAVE32 machinery) — re-derive if ever rebased.
+
+**Caveat:** shaders assuming exactly 32 lanes for wave intrinsics may mis-render; this is a compat hack, not a fix. Device-proof pending.

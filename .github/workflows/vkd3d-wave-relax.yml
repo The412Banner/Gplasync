@@ -1,0 +1,177 @@
+name: VKD3D-Proton relax_wave_size (x64 + x86, artifact-only)
+
+# One-off experimental VKD3D-Proton build carrying patches/vkd3d-proton-relax-wave-size.patch:
+# when a compute shader's [WaveSize] range cannot be satisfied by the device (e.g. WaveSize(32)
+# on Adreno 7xx / Turnip, which only offers 64..128), vkd3d clamps to the nearest supported
+# subgroup size and continues (one WARN) instead of failing the PSO with E_INVALIDARG.
+# New VKD3D_CONFIG flag `relax_wave_size`, DEFAULT-ON in this build; `no_relax_wave_size` opts out.
+# Target: SM6-only UE 5.5 titles (Serious Sam Shatterverse). Pinned to the same upstream commit
+# as the 3.0.1-d01924b6 content profile already installed on the test device.
+# Artifact-only: does NOT create a release or touch nightlies_components.json.
+
+on:
+  workflow_dispatch:
+    inputs:
+      vkd3d_ref:
+        description: "vkd3d-proton commit/tag to build (patch is written against d01924b6)"
+        required: true
+        default: "d01924b6f02fa3f78e3d371269267355363dbcb7"
+      version_name:
+        description: "profile.json versionName (install dir = <versionName>-<versionCode>)"
+        required: true
+        default: "3.1.0-wave64-relax"
+      version_code:
+        description: "profile.json versionCode"
+        required: true
+        default: "1"
+
+jobs:
+  build-vkd3d-wave-relax:
+    name: Build VKD3D-Proton relax_wave_size (x64 + x86)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Nightlies (for the patch)
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl xz-utils jq git zip \
+            build-essential python3 pkg-config zstd \
+            meson ninja-build wget unzip
+
+      - name: Setup GLSLANG
+        run: |
+          wget -q https://github.com/KhronosGroup/glslang/releases/download/master-tot/glslang-master-linux-Release.zip
+          unzip -q glslang-master-linux-Release.zip -d glslang
+          echo "$PWD/glslang/bin" >> $GITHUB_PATH
+
+      - name: Setup Toolchain
+        run: |
+          LLVM_MINGW_TAG="20251104"
+          TOOLCHAIN_DIR="/opt/llvm-mingw"
+          wget -q "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_TAG/llvm-mingw-$LLVM_MINGW_TAG-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm.tar.xz
+          sudo rm -rf "$TOOLCHAIN_DIR" && sudo mkdir -p "$TOOLCHAIN_DIR"
+          sudo tar -C "$TOOLCHAIN_DIR" --strip-components=1 -xJf llvm.tar.xz
+          echo "$TOOLCHAIN_DIR/bin" >> $GITHUB_PATH
+
+      - name: Fetch + patch VKD3D-Proton
+        id: version
+        run: |
+          git clone https://github.com/HansKristian-Work/vkd3d-proton src
+          cd src
+          git checkout --quiet "${{ github.event.inputs.vkd3d_ref }}"
+          git submodule update --init --recursive
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          FULL_HASH=$(git rev-parse HEAD)
+          git apply --check ../patches/vkd3d-proton-relax-wave-size.patch
+          git apply ../patches/vkd3d-proton-relax-wave-size.patch
+          git diff --stat
+          # Prove the relax flag is really in the tree that gets compiled.
+          grep -q 'VKD3D_DECL_CONFIG("relax_wave_size", RELAX_WAVE_SIZE)' include/private/config_flag_decl.h
+          grep -q 'VKD3D_CONFIG_FLAG_IS_SET(RELAX_WAVE_SIZE)' libs/vkd3d/device.c
+          grep -q 'VKD3D_CONFIG_FLAG_IS_SET(RELAX_WAVE_SIZE)' libs/vkd3d/state.c
+          echo "VERSION_NAME=${{ github.event.inputs.version_name }}" >> $GITHUB_ENV
+          echo "VERSION_CODE=${{ github.event.inputs.version_code }}" >> $GITHUB_ENV
+          echo "COMMIT_HASH=${COMMIT_HASH}" >> $GITHUB_ENV
+          echo "FULL_HASH=${FULL_HASH}" >> $GITHUB_ENV
+          echo "commit=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+
+      - name: Build VKD3D (x64 + x86)
+        run: |
+          cat <<EOT > cross-x64.txt
+          [binaries]
+          c = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-clang'
+          cpp = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-clang++'
+          ar = '/opt/llvm-mingw/bin/llvm-ar'
+          strip = '/opt/llvm-mingw/bin/llvm-strip'
+          windres = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-windres'
+          widl = '/opt/llvm-mingw/bin/x86_64-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          exe_wrapper = ['wine']
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86_64'
+          cpu = 'x86_64'
+          endian = 'little'
+          EOT
+
+          cat <<EOT > cross-x86.txt
+          [binaries]
+          c = '/opt/llvm-mingw/bin/i686-w64-mingw32-clang'
+          cpp = '/opt/llvm-mingw/bin/i686-w64-mingw32-clang++'
+          ar = '/opt/llvm-mingw/bin/llvm-ar'
+          strip = '/opt/llvm-mingw/bin/llvm-strip'
+          windres = '/opt/llvm-mingw/bin/i686-w64-mingw32-windres'
+          widl = '/opt/llvm-mingw/bin/i686-w64-mingw32-widl'
+          pkg-config = 'pkg-config'
+          exe_wrapper = ['wine']
+          [host_machine]
+          system = 'windows'
+          cpu_family = 'x86'
+          cpu = 'i686'
+          endian = 'little'
+          EOT
+
+          cd src
+          meson setup build-x64 --cross-file ../cross-x64.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-x64 -j 2
+          meson setup build-x86 --cross-file ../cross-x86.txt -Dbuildtype=release -Dstrip=true
+          ninja -C build-x86 -j 2
+
+      - name: Package
+        run: |
+          rm -rf final_package && mkdir -p final_package/system32 final_package/syswow64
+
+          cp -L src/build-x64/libs/d3d12/d3d12.dll final_package/system32/
+          cp -L src/build-x64/libs/d3d12core/d3d12core.dll final_package/system32/
+          cp -L src/build-x86/libs/d3d12/d3d12.dll final_package/syswow64/
+          cp -L src/build-x86/libs/d3d12core/d3d12core.dll final_package/syswow64/
+          ls -la final_package/system32 final_package/syswow64
+          # Sanity: x64 PE in system32 (machine 0x8664), i386 PE in syswow64 (0x14c)
+          python3 - <<'PY'
+          import struct
+          for p, want in (("final_package/system32/d3d12core.dll", 0x8664), ("final_package/syswow64/d3d12core.dll", 0x14c)):
+              d = open(p, "rb").read()
+              pe = struct.unpack_from("<I", d, 0x3c)[0]
+              m = struct.unpack_from("<H", d, pe + 4)[0]
+              print(p, hex(m))
+              assert m == want, (p, hex(m))
+          PY
+
+          cat <<EOT > final_package/profile.json
+          {
+            "type": "VKD3D",
+            "versionName": "${VERSION_NAME}",
+            "versionCode": ${VERSION_CODE},
+            "description": "Banners Repo - VKD3D-Proton ${COMMIT_HASH} + relax_wave_size (WaveSize clamp to device subgroup range, default-on; VKD3D_CONFIG=no_relax_wave_size opts out)",
+            "files": [
+              {"source": "system32/d3d12.dll", "target": "\${system32}/d3d12.dll"},
+              {"source": "system32/d3d12core.dll", "target": "\${system32}/d3d12core.dll"},
+              {"source": "syswow64/d3d12.dll", "target": "\${syswow64}/d3d12.dll"},
+              {"source": "syswow64/d3d12core.dll", "target": "\${syswow64}/d3d12core.dll"}
+            ]
+          }
+          EOT
+          cat final_package/profile.json
+
+          cd final_package
+          tar --zstd -cf ../VKD3D-Proton-${VERSION_NAME}.wcp profile.json system32 syswow64
+          zip -r ../VKD3D-Proton-${VERSION_NAME}.zip profile.json system32 syswow64
+          cd ..
+          {
+            echo "vkd3d-proton: ${FULL_HASH}"
+            echo "patch: patches/vkd3d-proton-relax-wave-size.patch"
+            echo "nightlies: ${GITHUB_SHA}"
+            echo "run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            sha256sum VKD3D-Proton-${VERSION_NAME}.wcp VKD3D-Proton-${VERSION_NAME}.zip
+          } | tee BUILD_INFO.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vkd3d-wave64-relax
+          path: |
+            *.wcp
+            *.zip
+            BUILD_INFO.txt
