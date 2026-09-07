@@ -1,23 +1,23 @@
 {
-  "triggered_at": "2026-09-07T16:54:51Z",
+  "triggered_at": "2026-09-07T20:17:48Z",
   "changed": [
     {
-      "repo": "ptitSeb/box64",
-      "name": "Box64 (Official)",
-      "old": "36d1cd7",
-      "new": "4e5f180",
-      "full": "4e5f1806dc10c3b6fc2239fcfd73de90282d60f2",
-      "msg": "[ARM64_DYNAREC] Improved RDSEED / RDPID emulation (for #4368)",
-      "date": "2026-09-07T12:49:44Z"
+      "repo": "FEX-Emu/FEX",
+      "name": "FEX",
+      "old": "42c6632",
+      "new": "5a4f84c",
+      "full": "5a4f84cad983da46b7a7aa338197dcbd6691f9f4",
+      "msg": "Merge pull request #5870 from cjacek/fmt-update",
+      "date": "2026-09-07T19:24:52Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "ea85c4c",
-      "new": "6eb951b",
-      "full": "6eb951b75a7209232a081bf8326e1c2166334d5f",
-      "msg": "radv: ignore {VS,PS}_PARTIAL_FLUSH with CB/DB TS events on GFX9",
-      "date": "2026-09-07T16:19:52.000+00:00"
+      "old": "6eb951b",
+      "new": "acbb4f6",
+      "full": "acbb4f6b8de2768b5ea7d6a83a8e52a263eac5cc",
+      "msg": "radv: disable depth clipping for slow depth clears",
+      "date": "2026-09-07T17:40:58.000+00:00"
     }
   ]
 }
