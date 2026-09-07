@@ -1,23 +1,14 @@
 {
-  "triggered_at": "2026-09-07T20:17:48Z",
+  "triggered_at": "2026-09-07T23:11:22Z",
   "changed": [
     {
       "repo": "FEX-Emu/FEX",
       "name": "FEX",
-      "old": "42c6632",
-      "new": "5a4f84c",
-      "full": "5a4f84cad983da46b7a7aa338197dcbd6691f9f4",
-      "msg": "Merge pull request #5870 from cjacek/fmt-update",
-      "date": "2026-09-07T19:24:52Z"
-    },
-    {
-      "repo": "mesa/mesa",
-      "name": "Mesa (Turnip)",
-      "old": "6eb951b",
-      "new": "acbb4f6",
-      "full": "acbb4f6b8de2768b5ea7d6a83a8e52a263eac5cc",
-      "msg": "radv: disable depth clipping for slow depth clears",
-      "date": "2026-09-07T17:40:58.000+00:00"
+      "old": "5a4f84c",
+      "new": "310c250",
+      "full": "310c2504f6c04d5249c1614c2d3bdd3ea820fe6d",
+      "msg": "Merge pull request #5930 from cjacek/raise-exception",
+      "date": "2026-09-07T22:20:37Z"
     }
   ]
 }
