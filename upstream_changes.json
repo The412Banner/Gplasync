@@ -1,23 +1,32 @@
 {
-  "triggered_at": "2026-09-08T07:35:56Z",
+  "triggered_at": "2026-09-08T12:26:04Z",
   "changed": [
     {
-      "repo": "FEX-Emu/FEX",
-      "name": "FEX",
-      "old": "310c250",
-      "new": "395b132",
-      "full": "395b132f346b1a45def246d10c52245edba1ef02",
-      "msg": "Docs: Update for release FEX-2609",
-      "date": "2026-09-08T06:42:35Z"
+      "repo": "HansKristian-Work/vkd3d-proton",
+      "name": "VKD3D-Proton",
+      "old": "056939e",
+      "new": "24fc812",
+      "full": "24fc8123814b2debbee0f14ad83f1c62f9ab89ef",
+      "msg": "tests: Add opacity micromap test with ray query in SM 6.9",
+      "date": "2026-09-08T11:41:29Z"
+    },
+    {
+      "repo": "doitsujin/dxvk",
+      "name": "DXVK",
+      "old": "d7ac258",
+      "new": "c833ea7",
+      "full": "c833ea7e9af2a22ea6c88a202f95517f100ed945",
+      "msg": "[d3d8] Extend legacy discard handling to handle legacy buffer mapping",
+      "date": "2026-09-08T11:43:02Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "acbb4f6",
-      "new": "4d028ea",
-      "full": "4d028ea2b8c9740d4fa25d9f1b82866739d28748",
-      "msg": "intel/ci: Update improvements.",
-      "date": "2026-09-08T08:43:13.000+02:00"
+      "old": "4d028ea",
+      "new": "d10ec46",
+      "full": "d10ec46ad5dfbb69e5f2c5f6aad0c7d8483760a5",
+      "msg": "tu: Use p_atomic_read to read from query's slot->available",
+      "date": "2026-09-08T10:41:18.000+00:00"
     }
   ]
 }
