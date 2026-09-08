@@ -1,14 +1,23 @@
 {
-  "triggered_at": "2026-09-07T23:11:22Z",
+  "triggered_at": "2026-09-08T07:35:56Z",
   "changed": [
     {
       "repo": "FEX-Emu/FEX",
       "name": "FEX",
-      "old": "5a4f84c",
-      "new": "310c250",
-      "full": "310c2504f6c04d5249c1614c2d3bdd3ea820fe6d",
-      "msg": "Merge pull request #5930 from cjacek/raise-exception",
-      "date": "2026-09-07T22:20:37Z"
+      "old": "310c250",
+      "new": "395b132",
+      "full": "395b132f346b1a45def246d10c52245edba1ef02",
+      "msg": "Docs: Update for release FEX-2609",
+      "date": "2026-09-08T06:42:35Z"
+    },
+    {
+      "repo": "mesa/mesa",
+      "name": "Mesa (Turnip)",
+      "old": "acbb4f6",
+      "new": "4d028ea",
+      "full": "4d028ea2b8c9740d4fa25d9f1b82866739d28748",
+      "msg": "intel/ci: Update improvements.",
+      "date": "2026-09-08T08:43:13.000+02:00"
     }
   ]
 }
