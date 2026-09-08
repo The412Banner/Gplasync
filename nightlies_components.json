@@ -763,6 +763,30 @@
   },
   {
     "type": "FEXCore",
+    "verName": "FEXCore-2609-PPA-unix",
+    "verCode": "0",
+    "remoteUrl": "https://github.com/The412Banner/Nightlies/releases/download/FexCore/FEXCore-2609-PPA-unix.wcp"
+  },
+  {
+    "type": "FEXCore",
+    "verName": "FEXCore-2609-PPA",
+    "verCode": "0",
+    "remoteUrl": "https://github.com/The412Banner/Nightlies/releases/download/FexCore/FEXCore-2609-PPA.wcp"
+  },
+  {
+    "type": "FEXCore",
+    "verName": "FEXCore-2609-unix",
+    "verCode": "0",
+    "remoteUrl": "https://github.com/The412Banner/Nightlies/releases/download/FexCore/FEXCore-2609-unix.wcp"
+  },
+  {
+    "type": "FEXCore",
+    "verName": "FEXCore-2609",
+    "verCode": "0",
+    "remoteUrl": "https://github.com/The412Banner/Nightlies/releases/download/FexCore/FEXCore-2609.wcp"
+  },
+  {
+    "type": "FEXCore",
     "verName": "fexcore_241214",
     "verCode": "0",
     "remoteUrl": "https://github.com/The412Banner/Nightlies/releases/download/FexCore/fexcore_241214.wcp"
@@ -1264,6 +1288,24 @@
     "verName": "proton-11.0-arm64ec-20260422.1559",
     "verCode": "0",
     "remoteUrl": "https://github.com/The412Banner/Nightlies/releases/download/Proton-11/proton-11.0-arm64ec-20260422.1559.wcp"
+  },
+  {
+    "type": "GpuDriver",
+    "verName": "Turnip-v26.3.0-20260908-r2-710-720-Test",
+    "verCode": "0",
+    "remoteUrl": "https://github.com/The412Banner/Banners-Turnip/releases/download/v26.3.0-20260908-r2/Turnip-v26.3.0-20260908-r2-710-720-Test.zip"
+  },
+  {
+    "type": "GpuDriver",
+    "verName": "Turnip-v26.3.0-20260908-r2-A8xx",
+    "verCode": "0",
+    "remoteUrl": "https://github.com/The412Banner/Banners-Turnip/releases/download/v26.3.0-20260908-r2/Turnip-v26.3.0-20260908-r2-A8xx.zip"
+  },
+  {
+    "type": "GpuDriver",
+    "verName": "Turnip-v26.3.0-20260908-r2",
+    "verCode": "0",
+    "remoteUrl": "https://github.com/The412Banner/Banners-Turnip/releases/download/v26.3.0-20260908-r2/Turnip-v26.3.0-20260908-r2.zip"
   },
   {
     "type": "GpuDriver",
@@ -3046,23 +3088,5 @@
     "verName": "Turnip-v26.3.0-20260821-r4",
     "verCode": "0",
     "remoteUrl": "https://github.com/The412Banner/Banners-Turnip/releases/download/v26.3.0-20260821-r4/Turnip-v26.3.0-20260821-r4.zip"
-  },
-  {
-    "type": "GpuDriver",
-    "verName": "Turnip-v26.3.0-20260821-r3-710-720-Test",
-    "verCode": "0",
-    "remoteUrl": "https://github.com/The412Banner/Banners-Turnip/releases/download/v26.3.0-20260821-r3/Turnip-v26.3.0-20260821-r3-710-720-Test.zip"
-  },
-  {
-    "type": "GpuDriver",
-    "verName": "Turnip-v26.3.0-20260821-r3-A8xx",
-    "verCode": "0",
-    "remoteUrl": "https://github.com/The412Banner/Banners-Turnip/releases/download/v26.3.0-20260821-r3/Turnip-v26.3.0-20260821-r3-A8xx.zip"
-  },
-  {
-    "type": "GpuDriver",
-    "verName": "Turnip-v26.3.0-20260821-r3",
-    "verCode": "0",
-    "remoteUrl": "https://github.com/The412Banner/Banners-Turnip/releases/download/v26.3.0-20260821-r3/Turnip-v26.3.0-20260821-r3.zip"
   }
 ]
