@@ -1,32 +1,23 @@
 {
-  "triggered_at": "2026-09-08T19:42:00Z",
+  "triggered_at": "2026-09-08T22:12:01Z",
   "changed": [
     {
-      "repo": "HansKristian-Work/vkd3d-proton",
-      "name": "VKD3D-Proton",
-      "old": "2b977e2",
-      "new": "736a756",
-      "full": "736a756af0074f8323105446b69c7c48b1d7710c",
-      "msg": "dxil-spirv: Update submodule.",
-      "date": "2026-09-08T17:55:06Z"
-    },
-    {
-      "repo": "WinterSnowfall/d7vk",
-      "name": "D7VK (DDraw/D3D7)",
-      "old": "e58f3ff",
-      "new": "11764da",
-      "full": "11764daca8911eb7f86ded200fadfec234705a85",
-      "msg": "[meta] Improve the robustness of DDraw interface resolution",
-      "date": "2026-09-08T18:45:06Z"
+      "repo": "FEX-Emu/FEX",
+      "name": "FEX",
+      "old": "395b132",
+      "new": "184c952",
+      "full": "184c9522e12cb5c75469a7e821885dcbb3c801c1",
+      "msg": "Merge pull request #5935 from Sonicadvance1/236",
+      "date": "2026-09-08T20:45:34Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "92833b1",
-      "new": "4bb5eea",
-      "full": "4bb5eea697a4073bba11b35d9c08a9a44407a05f",
-      "msg": "mediafoundation: fix av1 encode QP",
-      "date": "2026-09-08T19:19:17.000+00:00"
+      "old": "4bb5eea",
+      "new": "5630601",
+      "full": "5630601e8ec3da337d3f430da4557a6b06ba78c1",
+      "msg": "venus: log more upon failed gralloc interactions",
+      "date": "2026-09-08T21:06:35.000+00:00"
     }
   ]
 }
