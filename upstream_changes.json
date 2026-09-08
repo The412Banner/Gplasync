@@ -1,32 +1,32 @@
 {
-  "triggered_at": "2026-09-08T16:56:28Z",
+  "triggered_at": "2026-09-08T19:42:00Z",
   "changed": [
-    {
-      "repo": "ptitSeb/box64",
-      "name": "Box64 (Official)",
-      "old": "4e5f180",
-      "new": "e2219d8",
-      "full": "e2219d8facce7d6223da1a28c12388d3a05a2327",
-      "msg": "[RV64_DYNAREC] Fix writing read-only page for SHA/AES opcode (#4370)",
-      "date": "2026-09-08T13:54:43Z"
-    },
     {
       "repo": "HansKristian-Work/vkd3d-proton",
       "name": "VKD3D-Proton",
-      "old": "24fc812",
-      "new": "2b977e2",
-      "full": "2b977e26c34ce7591db1d83acf1bb6ee85042cf2",
-      "msg": "tests: Document driver bugs with robustness on NV with long vectors.",
-      "date": "2026-09-08T14:35:20Z"
+      "old": "2b977e2",
+      "new": "736a756",
+      "full": "736a756af0074f8323105446b69c7c48b1d7710c",
+      "msg": "dxil-spirv: Update submodule.",
+      "date": "2026-09-08T17:55:06Z"
+    },
+    {
+      "repo": "WinterSnowfall/d7vk",
+      "name": "D7VK (DDraw/D3D7)",
+      "old": "e58f3ff",
+      "new": "11764da",
+      "full": "11764daca8911eb7f86ded200fadfec234705a85",
+      "msg": "[meta] Improve the robustness of DDraw interface resolution",
+      "date": "2026-09-08T18:45:06Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "d10ec46",
-      "new": "92833b1",
-      "full": "92833b15d125ab4aa234736f22e5b8504e3d3954",
-      "msg": "meson: document bindgen 0.73.0 & 0.73.1 as bad_versions",
-      "date": "2026-09-08T16:06:19.000+00:00"
+      "old": "92833b1",
+      "new": "4bb5eea",
+      "full": "4bb5eea697a4073bba11b35d9c08a9a44407a05f",
+      "msg": "mediafoundation: fix av1 encode QP",
+      "date": "2026-09-08T19:19:17.000+00:00"
     }
   ]
 }
