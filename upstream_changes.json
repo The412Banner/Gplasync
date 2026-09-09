@@ -1,23 +1,23 @@
 {
-  "triggered_at": "2026-09-09T05:35:50Z",
+  "triggered_at": "2026-09-09T10:27:59Z",
   "changed": [
     {
-      "repo": "FEX-Emu/FEX",
-      "name": "FEX",
-      "old": "7813c7a",
-      "new": "208e9c3",
-      "full": "208e9c31eaa30d7bcbcb808151eadaa2d79d852b",
-      "msg": "Merge pull request #5937 from Sonicadvance1/238",
-      "date": "2026-09-09T02:56:09Z"
+      "repo": "doitsujin/dxvk",
+      "name": "DXVK",
+      "old": "c833ea7",
+      "new": "8759acd",
+      "full": "8759acd15dc79c8a92f5dd028b9e0d81a153c262",
+      "msg": "[meta] Update dxbc-spirv",
+      "date": "2026-09-09T10:18:39Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "d039f1c",
-      "new": "294e91a",
-      "full": "294e91ade1b979e4ea8d7c504a9254e4c4fc786a",
-      "msg": "ir3: Handle non-uniformity of texture_2/sampler_2",
-      "date": "2026-09-09T01:02:52.000+00:00"
+      "old": "294e91a",
+      "new": "cab1821",
+      "full": "cab1821ef75f20338424b8d2c66cdae87b345454",
+      "msg": "broadcom/ci: update expected results",
+      "date": "2026-09-09T10:06:28.000+00:00"
     }
   ]
 }
