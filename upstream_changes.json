@@ -1,23 +1,23 @@
 {
-  "triggered_at": "2026-09-08T22:12:01Z",
+  "triggered_at": "2026-09-09T00:53:57Z",
   "changed": [
     {
       "repo": "FEX-Emu/FEX",
       "name": "FEX",
-      "old": "395b132",
-      "new": "184c952",
-      "full": "184c9522e12cb5c75469a7e821885dcbb3c801c1",
-      "msg": "Merge pull request #5935 from Sonicadvance1/236",
-      "date": "2026-09-08T20:45:34Z"
+      "old": "184c952",
+      "new": "7813c7a",
+      "full": "7813c7aaa7cb025df6c540545ee012e7d6ea531d",
+      "msg": "Merge pull request #5936 from Sonicadvance1/237",
+      "date": "2026-09-08T23:40:43Z"
     },
     {
       "repo": "mesa/mesa",
       "name": "Mesa (Turnip)",
-      "old": "4bb5eea",
-      "new": "5630601",
-      "full": "5630601e8ec3da337d3f430da4557a6b06ba78c1",
-      "msg": "venus: log more upon failed gralloc interactions",
-      "date": "2026-09-08T21:06:35.000+00:00"
+      "old": "5630601",
+      "new": "d039f1c",
+      "full": "d039f1c9ea7eacd99c19cd9ea5b807b8ff14eba6",
+      "msg": "isl: limit max programming buffer size on Xe2+",
+      "date": "2026-09-09T00:16:49.000+00:00"
     }
   ]
 }
